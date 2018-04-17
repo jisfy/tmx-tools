@@ -165,4 +165,5 @@ function maybeAddTileInCoordinates(tileIndexLeft, tileIndexTop, tile) {
 module.exports = {
   getTileTopLeftCoordinates: getTileTopLeftCoordinates,
   tilesetFromImage : tilesetFromImage,
+  maybeAddTileInCoordinates : maybeAddTileInCoordinates,
 };

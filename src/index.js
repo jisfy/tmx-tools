@@ -19,7 +19,7 @@ Jimp.read(inputBitmapFileName).then(function (image) {
       tileWidth, 
       tileHeight);
   // var tileset = tmxTools.tilesetFromImage(image, tileTopLeftCoordinates);
-  var tilesetPromise = tmxTools.tilesetFromImage(image, tileTopLeftCoordinates);
+  var tilesetPromise = tmxTools.tilesetFromImage(image, tileTopLeftCoordinates, tileWidth, tileHeight);
   tilesetPromise.then(function (tileset) {
     console.log('...... tileset ' + tileset.mapping);
     var g = 0;
