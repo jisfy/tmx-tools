@@ -66,6 +66,20 @@ function getTileTopLeftCoordinates(imageWidth, imageHeight, tileWidth, tileHeigh
   return tileTopLeftCoordinates;
 }
 
+/**
+ * Creates a TileSet from an Image
+ * @param {Jimp} image - a bitmap image from where to bild the TileSet
+ * @param {Array<Array<number, number>>} tileTopLeftCoordinates - a 
+ *     list of pairs containing the top-left coordinates of each tile 
+ *     in the given
+ * @return {Object} an object containing the TileSet built with
+ *     - tiles : a list of the Tile images
+ *     - tileMapping : a dictionary whose entries are the Base64 values of
+ *         tiles, and values being the index of that Tile in the tiles list.
+ *     - mapping : a matrix, where each position is the Tile index in the
+ *         original image, and whose values are the index of the real Tile
+ *         bitmap in the tiles list.
+ */
 function tilesetFromImage(image, tileTopLeftCoordinates) {
   var tilesetData_ = {
     mapping : [],
@@ -76,8 +90,6 @@ function tilesetFromImage(image, tileTopLeftCoordinates) {
   var imageWidthInTiles = image.width / tileWidth;
   var imageHeightInTiles = image.height / tileHeight;
 
-  console.log('tilesetData_.tileMapping ' + tilesetData_.tileMapping);
-
   var addTiles = function (tilesetDataPromise, topLeftTileCoordinates) {
     var tileAtIndex = new Jimp(tileWidth, tileHeight);
     var tileTargetHorizontalPosition = 0;
@@ -85,7 +97,6 @@ function tilesetFromImage(image, tileTopLeftCoordinates) {
     var sourceImageHorizontalPosition = topLeftTileCoordinates[0] * tileWidth;
     var sourceImageVerticalPosition = topLeftTileCoordinates[1] * tileHeight;
 
-    console.log('.... adding Tile for ' + sourceImageHorizontalPosition + '.' + sourceImageVerticalPosition); 
     tileAtIndex.blit(image, 
         tileTargetHorizontalPosition, 
         tileTargetVerticalPosition, 
@@ -97,13 +108,8 @@ function tilesetFromImage(image, tileTopLeftCoordinates) {
     var tileAtIndexBase64Promise = Q.ninvoke(tileAtIndex, 'getBase64', Jimp.AUTO);
     var resultPromise = Q.all([tilesetDataPromise, tileAtIndexBase64Promise]).spread(function (tilesetData, tileAtIndexBase64) {
       var isTileHashInTileset = tileAtIndexBase64 in tilesetData.tileMapping;
-      console.log('!!!!within Q.all ' + tilesetData.tileMapping + '.... base64 ' + tileAtIndexBase64);
       if (!isTileHashInTileset) {
-        console.log('tilesetData.tileMapping ' + tilesetData.tileMapping);
-        console.log('tilesetData.tileMapping.mapping ' + tilesetData.mapping);
-        console.log('tilesetData.tileMapping.tiles ' + tilesetData.tiles);
         tilesetData.tiles.push(tileAtIndex); 
-        console.log('..... tilesetData.tiles.length ' + tilesetData.tiles.length);
         if (tilesetData.mapping[topLeftTileCoordinates[0]] === undefined) {
           tilesetData.mapping[topLeftTileCoordinates[0]] = [];
         }
@@ -117,138 +123,11 @@ function tilesetFromImage(image, tileTopLeftCoordinates) {
     return resultPromise;
   };
 
-  // tilesetData_ = _.reduce(tileTopLeftCoordinates, addTiles, tilesetData_);
   var tilesetDataPromise_ = Q(tilesetData_);
   tilesetDataPromise_ = _.reduce(tileTopLeftCoordinates, addTiles, tilesetDataPromise_);
 
   return tilesetDataPromise_;
 }
-
-/*
- // this is a former implementaiton of tilesetFromImage based on Jimp.hash.
- // Regretfully, Jimp.hash does not yield unique hash values for different images.
-function tilesetFromImage(image, tileTopLeftCoordinates) {
-  var tilesetData_ = {
-    mapping : [],
-    tiles: [],
-    tileMapping : {},
-  };
-  
-  var imageWidthInTiles = image.width / tileWidth;
-  var imageHeightInTiles = image.height / tileHeight;
-
-  // var tileIndexCoordinatesToPixels = (coordinates => [coordinates[0] * tileWidth, coordinates[1] * tileHeight]);
-
-  console.log('tilesetData_.tileMapping ' + tilesetData_.tileMapping);
-  var addTiles = function (tilesetData, topLeftTileCoordinates) {
-    var tileAtIndex = new Jimp(tileWidth, tileHeight);
-    var tileTargetHorizontalPosition = 0;
-    var tileTargetVerticalPosition = 0;  
-    var sourceImageHorizontalPosition = topLeftTileCoordinates[0] * tileWidth;
-    var sourceImageVerticalPosition = topLeftTileCoordinates[1] * tileHeight;
-
-    console.log('.... adding Tile for ' + sourceImageHorizontalPosition + '.' + sourceImageVerticalPosition); 
-    tileAtIndex.blit(image, 
-        tileTargetHorizontalPosition, 
-        tileTargetVerticalPosition, 
-        sourceImageHorizontalPosition, 
-        sourceImageVerticalPosition, 
-        tileWidth,
-        tileHeight);
-    console.log('tilesetData ' + tilesetData + '..' + tileAtIndex.hash());
-    var isTileHashInTileset = tileAtIndex.hash() in tilesetData.tileMapping;
-    var differences = _.map(tilesetData.tiles, tile => Jimp.diff(tileAtIndex, tile))
-    var isTileDiffWithSomeOtherFromTilesetNonZero = _.some(differences, difference => (difference != 0));
-    console.log('---- differences ' + differences + ' .. ' + differences.length + '...' + isTileDiffWithSomeOtherFromTilesetNonZero);
-    _.each(differences, x => console.log('******* differences ' + x.percent));
-    if (!isTileHashInTileset) {
-      console.log('tilesetData.tileMapping ' + tilesetData.tileMapping);
-      console.log('tilesetData.tileMapping.mapping ' + tilesetData.mapping);
-      console.log('tilesetData.tileMapping.tiles ' + tilesetData.tiles);
-      tilesetData.tiles.push(tileAtIndex); 
-      console.log('..... tilesetData.tiles.length ' + tilesetData.tiles.length);
-      if (tilesetData.mapping[topLeftTileCoordinates[0]] === undefined) {
-        tilesetData.mapping[topLeftTileCoordinates[0]] = [];
-      }
-      tilesetData.mapping[
-          topLeftTileCoordinates[0]][topLeftTileCoordinates[1]] = 
-              tilesetData.tiles.length;
-      tilesetData.tileMapping[tileAtIndex.hash()] = tilesetData.tiles.length;
-    }
-    return tilesetData;
-  };
-
-  tilesetData_ = _.reduce(tileTopLeftCoordinates, addTiles, tilesetData_);
-  return tilesetData_;
-}
-*/
-
-/*
-function doSomething(image) {
-  var tilesetImages = {};
-  var tileAtIndex = new Jimp(tileWidth, tileHeight);
-  var tileTargetHorizontalPosition = 0;
-  var tileTargetVerticalPosition = 0;  
-
-  var imageWidthInTiles = image.width / tileWidth;
-  var imageHeightInTiles = image.height / tileHeight;
-
-  var tileHorizontalIndexes = _.range(imageWidthInTiles);
-  var tileVerticalIndexes = _.range(imageHeightInTiles);
-  var tileIndexes = _.zip(tileHorizontalIndexes, tileVerticalIndexes);
-  var tileTopLeftCoordinates = tileIndexes.map(indexPair => [ indexPair[0] * tileWidth, indexPair[1] * tileHeight ]);
-
-  var horizontalIndex = 0;
-  var verticalIndex = 0;
-  var sourceImageHorizontalPosition = horizontalIndex * tileWidth;
-  var sourceImageVerticalPosition = verticalIndex * tileHeight;
-
-  tileAtIndex.blit(image, 
-      tileTargetHorizontalPosition, 
-      tileTargetVerticalPosition, 
-      sourceImageHorizontalPosition, 
-      sourceImageVerticalPosition, 
-      tileWidth,
-      tileHeight);
-  tilesetImages[tileAtIndex.hash()] = tileAtIndex;
-}
-*/
-
-/*
-function doSomething(image) {
-  var tilesetImages = {};
-  var tileAtIndex = new Jimp(tileWidth, tileHeight);
-  var tileTargetHorizontalPosition = 0;
-  var tileTargetVerticalPosition = 0;  
-
-  var horizontalIndex = 0;
-  var verticalIndex = 0;
-  var sourceImageHorizontalPosition = horizontalIndex * tileWidth;
-  var sourceImageVerticalPosition = verticalIndex * tileHeight;
-
-  tileAtIndex.blit(image, 
-      tileTargetHorizontalPosition, 
-      tileTargetVerticalPosition, 
-      sourceImageHorizontalPosition, 
-      sourceImageVerticalPosition, 
-      tileWidth,
-      tileHeight);
-  tilesetImages[tileAtIndex.hash()] = tileAtIndex;
-}
-*/
-
-/*
-Jimp.read(inputBitmapFileName).then(function (image) {
-  console.log('image loaded, copying....');
-  var outputImage = new Jimp(300, 300);
-  return outputImage.blit(image, 0, 0, 0, 0, 300, 300);
-}).then(function (outputImage) {
-  console.log(' this should be called with what I returned before ');
-  outputImage.write(outputTileMapFileName);
-}).catch(function (err) {
-  console.log('couldnt load image ' + err.message);
-});
-*/
 
 module.exports = {
   getTileTopLeftCoordinates: getTileTopLeftCoordinates,
