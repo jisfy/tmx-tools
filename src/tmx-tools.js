@@ -1,15 +1,8 @@
 
-var _ = require('underscore');
 var XmlWriter = require('simple-xml-writer').XmlWriter;
 var Jimp = require('jimp');
-// var argv = require('optimist').usage('Usage : $0 -s tile_size -i input_bitmap.png -o output_tilemap.tmx').demand(['s','i', 'o']).argv;
-var argv = require('optimist').usage('Usage : $0 -s tile_size -i input_bitmap.png -o output_tilemap.tmx').argv;
+var _ = require('underscore');
 var Q = require('q');
-
-var inputBitmapFileName = argv.i;
-var outputTileMapFileName = argv.o;
-var tileWidth = argv.s;
-var tileHeight = argv.s;
 
 /**
  * A TiledMap class
@@ -81,32 +74,19 @@ function getTileTopLeftCoordinates(imageWidth, imageHeight, tileWidth, tileHeigh
  *         original image, and whose values are the index of the real Tile
  *         bitmap in the tiles list.
  */
-function tilesetFromImage(image, tileTopLeftCoordinates) {
+function tilesetFromImage(image, tileTopLeftCoordinates, tileWidth, tileHeight) {
   var emptyTilesetData = {
     mapping : [],
     tiles: [],
     tileMapping : {},
   };
-  
-  var imageWidthInTiles = image.width / tileWidth;
-  var imageHeightInTiles = image.height / tileHeight;
 
   var addTiles = function (tilesetData$, topLeftTileCoordinates) {
-    var tileAtIndex = new Jimp(tileWidth, tileHeight);
-    var tileTargetHorizontalPosition = 0;
-    var tileTargetVerticalPosition = 0;  
-    var sourceImageHorizontalPosition = topLeftTileCoordinates[0] * tileWidth;
-    var sourceImageVerticalPosition = topLeftTileCoordinates[1] * tileHeight;
-
-    tileAtIndex.blit(image, 
-        tileTargetHorizontalPosition, 
-        tileTargetVerticalPosition, 
-        sourceImageHorizontalPosition, 
-        sourceImageVerticalPosition, 
-        tileWidth,
-        tileHeight);
-
+    var tileAtIndex = buildTileImage(image, topLeftTileCoordinates, tileWidth, tileHeight);
+    // transforms the asynchronous getBase64 method of Jimp into a Promise
     var tileAtIndexBase64$ = Q.ninvoke(tileAtIndex, 'getBase64', Jimp.AUTO);
+    // build a Promise that settles when the Promises for tilesetData and
+    // the Base64 encoding of the Tile, both settle
     var tilesetDataWithNewTile$ = 
         Q.all([tilesetData$, tileAtIndexBase64$]).spread(
             maybeAddTileInCoordinates(
@@ -124,6 +104,47 @@ function tilesetFromImage(image, tileTopLeftCoordinates) {
   return tilesetDataWholeImage$;
 }
 
+/**
+ * @param {Jimp} image - the source image from which to build the Tile
+ * @param {Array<number>} topLeftIndex - a pair with the top-left indexes
+ *     of the Tile in the source image
+ * @param {number} tileWidth - the width of the new Tile in pixels
+ * @param {number} tileHeight - the height of the new Tile in pixels
+ * @return {Jimp} - a new Tile of the given width and height, whose
+ *     content pixels are copied from the corresponding position in the
+ *     source image 
+ */
+function buildTileImage(image, topLeftIndex, tileWidth, tileHeight) {
+  var tileTargetHorizontalPosition = 0;
+  var tileTargetVerticalPosition = 0;  
+  var sourceImageHorizontalPosition = topLeftIndex[0] * tileWidth;
+  var sourceImageVerticalPosition = topLeftIndex[1] * tileHeight;
+
+  var tile = new Jimp(tileWidth, tileHeight);
+  tile.blit(image, 
+      tileTargetHorizontalPosition, 
+      tileTargetVerticalPosition, 
+      sourceImageHorizontalPosition, 
+      sourceImageVerticalPosition, 
+      tileWidth,
+      tileHeight);
+
+  return tile;
+}
+
+/**
+ * Builds a Closure over a Tile, and its index position in the source image, which
+ * will then add it to the Tile Set if not already present 
+ * 
+ * @param {number} tileIndexLeft - the horizontal index the Tile occupies in 
+ *     the source image
+ * @param {number} tileIndexTop - the vertical index the Tile occupies in the
+ *     source image
+ * @param {Jimp} tile - the Tile bitmap to add to the Tile Set
+ * @return {function} - A function (tilesetData, tileBase64) => Promise(tilesetData)
+ *     that will add the given Tile at position tileIndexLeft, tileIndexTop to the
+ *     given Tile Set if its Base64 encoding is not already present.
+ */
 function maybeAddTileInCoordinates(tileIndexLeft, tileIndexTop, tile) {
   var maybeAddTileInCoordinatesAsync = function (tilesetData, tileBase64) {
       var isTileBase64InTileset = tileBase64 in tilesetData.tileMapping;
