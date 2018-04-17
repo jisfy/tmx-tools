@@ -60,7 +60,8 @@ function getTileTopLeftCoordinates(imageWidth, imageHeight, tileWidth, tileHeigh
   }
   var tileHorizontalIndexes = _.range(imageWidthInTiles);
   var tileVerticalIndexes = _.range(imageHeightInTiles);
-  var getIndexPairsForRow = (horizontalIndex => (tileVerticalIndexes.map(verticalIndex => [horizontalIndex, verticalIndex])));   
+  var getIndexPairsForRow = (horizontalIndex => (
+      tileVerticalIndexes.map(verticalIndex => [horizontalIndex, verticalIndex])));   
   var tileTopLeftCoordinates = _.chain(tileHorizontalIndexes).map(getIndexPairsForRow).
       flatten(true).value();
   return tileTopLeftCoordinates;
@@ -81,7 +82,7 @@ function getTileTopLeftCoordinates(imageWidth, imageHeight, tileWidth, tileHeigh
  *         bitmap in the tiles list.
  */
 function tilesetFromImage(image, tileTopLeftCoordinates) {
-  var tilesetData_ = {
+  var emptyTilesetData = {
     mapping : [],
     tiles: [],
     tileMapping : {},
@@ -90,7 +91,7 @@ function tilesetFromImage(image, tileTopLeftCoordinates) {
   var imageWidthInTiles = image.width / tileWidth;
   var imageHeightInTiles = image.height / tileHeight;
 
-  var addTiles = function (tilesetDataPromise, topLeftTileCoordinates) {
+  var addTiles = function (tilesetData$, topLeftTileCoordinates) {
     var tileAtIndex = new Jimp(tileWidth, tileHeight);
     var tileTargetHorizontalPosition = 0;
     var tileTargetVerticalPosition = 0;  
@@ -105,28 +106,39 @@ function tilesetFromImage(image, tileTopLeftCoordinates) {
         tileWidth,
         tileHeight);
 
-    var tileAtIndexBase64Promise = Q.ninvoke(tileAtIndex, 'getBase64', Jimp.AUTO);
-    var resultPromise = Q.all([tilesetDataPromise, tileAtIndexBase64Promise]).spread(function (tilesetData, tileAtIndexBase64) {
-      var isTileHashInTileset = tileAtIndexBase64 in tilesetData.tileMapping;
-      if (!isTileHashInTileset) {
-        tilesetData.tiles.push(tileAtIndex); 
-        if (tilesetData.mapping[topLeftTileCoordinates[0]] === undefined) {
-          tilesetData.mapping[topLeftTileCoordinates[0]] = [];
-        }
-        tilesetData.mapping[
-            topLeftTileCoordinates[0]][topLeftTileCoordinates[1]] = 
-                tilesetData.tiles.length;
-        tilesetData.tileMapping[tileAtIndexBase64] = tilesetData.tiles.length;
-      }
-      return Q(tilesetData);
-    }); 
-    return resultPromise;
+    var tileAtIndexBase64$ = Q.ninvoke(tileAtIndex, 'getBase64', Jimp.AUTO);
+    var tilesetDataWithNewTile$ = 
+        Q.all([tilesetData$, tileAtIndexBase64$]).spread(
+            maybeAddTileInCoordinates(
+                topLeftTileCoordinates[0], 
+                topLeftTileCoordinates[1], 
+                tileAtIndex
+            )
+        );
+    return tilesetDataWithNewTile$;
   };
 
-  var tilesetDataPromise_ = Q(tilesetData_);
-  tilesetDataPromise_ = _.reduce(tileTopLeftCoordinates, addTiles, tilesetDataPromise_);
+  var tilesetDataSoFar$ = Q(emptyTilesetData);
+  var tilesetDataWholeImage$ = _.reduce(tileTopLeftCoordinates, addTiles, tilesetDataSoFar$);
 
-  return tilesetDataPromise_;
+  return tilesetDataWholeImage$;
+}
+
+function maybeAddTileInCoordinates(tileIndexLeft, tileIndexTop, tile) {
+  var maybeAddTileInCoordinatesAsync = function (tilesetData, tileBase64) {
+      var isTileBase64InTileset = tileBase64 in tilesetData.tileMapping;
+      if (!isTileBase64InTileset) {
+        tilesetData.tiles.push(tile); 
+        if (tilesetData.mapping[tileIndexLeft] === undefined) {
+          tilesetData.mapping[tileIndexLeft] = [];
+        }
+        tilesetData.mapping[tileIndexLeft][tileIndexTop] = 
+            tilesetData.tiles.length;
+        tilesetData.tileMapping[tileBase64] = tilesetData.tiles.length;
+      }
+      return Q(tilesetData);
+  };
+  return maybeAddTileInCoordinatesAsync;
 }
 
 module.exports = {
