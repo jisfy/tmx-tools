@@ -166,13 +166,22 @@ function getTilesetImageDimesionInTiles(numberOfTilesInTileset) {
         remainingTilesNotInSquareImage / tilesetSquareImageDimesionFloor);
     extraTileRows =
         remainingTilesNotInSquareImage % tilesetSquareImageDimesionFloor;
+    if (extraTileColumns === 0) {
+      // preferrably grow the tileset horizontally adding more columns
+      // swap extra columns and rows if the original extra columns is zero
+      extraTileColumns = extraTileRows;
+      extraTileRows = 0;
+    }
   }
   var tilesetImageHorizontalDimension =
-      tilesetSquareImageDimesionFloor + extraTileColumns;
-  var tilesetImageVerticalDimension =
       tilesetSquareImageDimesionFloor + extraTileRows;
+  var tilesetImageVerticalDimension =
+      tilesetSquareImageDimesionFloor + extraTileColumns;
   var tilesetImageDimension =
-      [tilesetImageVerticalDimension, tilesetImageHorizontalDimension];
+      [tilesetImageHorizontalDimension, tilesetImageVerticalDimension];
+  console.log('----------> tilesetImageDimension ' + tilesetImageDimension +
+      '.. numberOfTilesInTileset ' + numberOfTilesInTileset);
+      // [tilesetImageVerticalDimension, tilesetImageHorizontalDimension];
   return tilesetImageDimension;
 }
 
@@ -187,8 +196,10 @@ function copyTile(tilesetImage, tile, tileHorizontalIndex, tileVerticalIndex) {
   var tileHeight = tile.bitmap.height;
   var sourceImageHorizontalPosition = 0;
   var sourceImageVerticalPosition = 0;
-  var tileTargetHorizontalPosition = tileHorizontalIndex * tileWidth;
-  var tileTargetVerticalPosition = tileVerticalIndex * tileHeight;
+  // var tileTargetHorizontalPosition = tileHorizontalIndex * tileWidth;
+  // var tileTargetVerticalPosition = tileVerticalIndex * tileHeight;
+  var tileTargetHorizontalPosition = tileVerticalIndex * tileWidth;
+  var tileTargetVerticalPosition =  tileHorizontalIndex * tileHeight;
 
   tilesetImage.blit(tile,
       tileTargetHorizontalPosition,
@@ -199,35 +210,50 @@ function copyTile(tilesetImage, tile, tileHorizontalIndex, tileVerticalIndex) {
       tileHeight);
 }
 
+function isTileIndexNonNegative(tileIndex) {
+  return (tileIndex >= 0);
+}
+
+function isTileIndexWithinBounds(tileRowIndex, tilesetNumberOfRows) {
+  return (tileRowIndex < tilesetNumberOfRows);
+}
+
 function getTileTargetPosition(tilesetDimension) {
   var getTileTargetPositionByIndex = function (tileIndex) {
-    if (tileIndex < 1) {
+    if (!isTileIndexNonNegative(tileIndex)) {
       throw new Error('Cant get a target position for a tile with ' +
           'non positive index');
     }
-    var correctedTileIndex = tileIndex;
     var tilesetNumberOfRows = tilesetDimension[0];
     var tilesetNumberOfColumns = tilesetDimension[1];
-    var tileRowIndex = Math.floor(correctedTileIndex / tilesetNumberOfColumns);
-    if (tileRowIndex >= tilesetNumberOfRows) {
+    var tileRowIndex = Math.floor(tileIndex / tilesetNumberOfColumns);
+    console.log('-------- getTileTargetPositionByIndex ' + tileIndex + ',' + tileRowIndex + '..' + tilesetDimension);
+    if (!isTileIndexWithinBounds(tileRowIndex, tilesetNumberOfRows)) {
       throw new Error('Cant get a target position for a tile with ' +
           'index bigger than dimension');
     }
-    var tileColumnIndex = Math.floor(correctedTileIndex % tilesetNumberOfColumns);
+    var tileColumnIndex = Math.floor(tileIndex % tilesetNumberOfColumns);
     return [tileRowIndex, tileColumnIndex];
   };
   return getTileTargetPositionByIndex;
 }
 
 function doSomething(tilesetData, tilesetDimension, tileWidthPixels, tileHeightPixels) {
-  var tilesetWidthPixels = tilesetDimension[0] * tileHeightPixels;
-  var tilesetHeightPixels = tilesetDimension[1] * tileWidthPixels;
+  var tilesetWidthPixels = tilesetDimension[1] * tileWidthPixels;
+  var tilesetHeightPixels = tilesetDimension[0] * tileHeightPixels;
   var tilesetImage = new Jimp(tilesetWidthPixels, tilesetHeightPixels);
 
-  _.range(1, tilesetDimension[1]);
-  _.map(tilesetData, )
-
-  console.log('--------- ' + _.range(1, tilesetDimension[1]));
+  var getTileTargetPositionByIndex = getTileTargetPosition(tilesetDimension);
+  var gaita = (tile, index) => {
+    var tilePosition = getTileTargetPositionByIndex(index);
+    console.log('-------- copying tile ' + index + ',' + tilePosition + '..' + tilesetDimension);
+    copyTile(tilesetImage, tile, tilePosition[0], tilePosition[1]);
+  };
+  _.map(tilesetData.tiles, gaita);
+  var tilesetImageFilename = './assets/tileset.png';
+  writeTilesetImage(tilesetImageFilename, tilesetImage).then(function () {
+    console.log('.... tileset written');
+  });
 }
 
 /**
