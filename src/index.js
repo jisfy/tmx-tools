@@ -18,15 +18,14 @@ Jimp.read(inputBitmapFileName).then(function (image) {
       image.bitmap.height,
       tileWidth,
       tileHeight);
-  // var tileset = tmxTools.tilesetFromImage(image, tileTopLeftCoordinates);
   var tileset$ = tmxTools.tilesetFromImage(image, tileTopLeftCoordinates, tileWidth, tileHeight);
   tileset$.then(function (tileset) {
     var g = 0;
     _.each(tileset.tiles, x => {var filename = "./assets/p_" + g + ".png";console.log("writing " + filename);x.write(filename); g++;});
-    tmxTools.writeTmxFile(tileset, 3, 3, 64, 64);
+    tmxTools.writeTmxFile(tileset, [3, 3], [64, 64]);
     console.log('------> tileset.tiles.length ' + tileset.tiles.length);
-    var tilesetImageFilename = './assets/tileset.png';
-    tmxTools.buildTilesetImage(tilesetImageFilename, tileset, [64, 64]);
+    // var tilesetImageFilename = './assets/tileset.png';
+    // tmxTools.buildTilesetImage(tilesetImageFilename, tileset, [64, 64]);
   });
 
   // console.log('...... tileset ' + tileset.mapping);

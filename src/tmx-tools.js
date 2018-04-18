@@ -297,50 +297,53 @@ function buildTilesetImage(tilesetImageFilename, tilesetData, tileSizePixels) {
  * @param {number} tileHeightPixels - the height a tile in pixels
  *
  */
-function writeTmxFile(tilesetData, mapWidthTiles, mapHeightTiles,
-      tileWidthPixels, tileHeightPixels) {
-  var tilesetWidthTiles = 1;
-  var tilesetHeightTiles = 1;
+function writeTmxFile(tilesetData, mapSizeTiles, tileSizePixels) {
+  var mapWidthTiles = mapSizeTiles[0];
+  var mapHeightTiles = mapSizeTiles[1];
   var tmxMapVersion = '1.0';
   var mapOrientation = 'orthogonal';
   var layerName = 'layer';
   var tilesetName = layerName;
   var tilesetImageSource = layerName + '-Tileset.png';
-  var tilesetWidthPixels = tilesetWidthTiles * tileWidthPixels;
-  var tilesetHeightPixels = tilesetHeightTiles * tileHeightPixels;
 
-  var tmxOutputFile = new XmlWriter(function (el) {
-    el('map', function (el, at) {
-      at('version', tmxMapVersion);
-      at('orientation', mapOrientation);
-      at('width', mapWidthTiles);
-      at('height', mapHeightTiles);
-      at('tilewidth', tileWidthPixels);
-      at('tileheight', tileHeightPixels);
-      el('tileset', function (el, at) {
-        at('firstgid', 'test.png');
-        at('name', tilesetName);
-        at('tilewidth', tileWidthPixels);
-        at('tileheight', tileHeightPixels);
-        el('image', function (el, at) {
-          at('source', tilesetImageSource);
-          at('width', tilesetWidthPixels);
-          at('height', tilesetHeightPixels);
-        })
-      });
-      el('layer', function (el, at) {
-        at('name', layerName);
+  var tilesetImage$ =
+      buildTilesetImage(tilesetImageSource, tilesetData, tileSizePixels);
+  tilesetImage$.then(function (tilesetImage) {
+    var tilesetWidthPixels = tilesetImage.bitmap.width;
+    var tilesetHeightPixels = tilesetImage.bitmap.height;
+    var tmxOutputFile = new XmlWriter(function (el) {
+      el('map', function (el, at) {
+        at('version', tmxMapVersion);
+        at('orientation', mapOrientation);
         at('width', mapWidthTiles);
         at('height', mapHeightTiles);
-        el('data', function (el, at) {
-          at('encoding', 'base64');
-          at('compression', 'test.png');
-        })
+        at('tilewidth', tileSizePixels[0]);
+        at('tileheight', tileSizePixels[1]);
+        el('tileset', function (el, at) {
+          at('firstgid', 'test.png');
+          at('name', tilesetName);
+          at('tilewidth', tileSizePixels[0]);
+          at('tileheight', tileSizePixels[1]);
+          el('image', function (el, at) {
+            at('source', tilesetImageSource);
+            at('width', tilesetWidthPixels);
+            at('height', tilesetHeightPixels);
+          })
+        });
+        el('layer', function (el, at) {
+          at('name', layerName);
+          at('width', mapWidthTiles);
+          at('height', mapHeightTiles);
+          el('data', function (el, at) {
+            at('encoding', 'base64');
+            at('compression', 'test.png');
+          })
+        });
       });
-    });
-  }, { addDeclaration : true });
+    }, { addDeclaration : true });
+    console.log('*****' + tmxOutputFile);
+  })
 
-  console.log('*****' + tmxOutputFile);
   /*
   var gaita = '<?xml version="1.0" encoding="UTF-8"?>\n' +
        '<map version="1.0" orientation="orthogonal" width="' + gridWidth + '" height="' + gridHeight + '" tilewidth="' + tileWidth + '" tileheight="' + tileHeight + '">\n' +
