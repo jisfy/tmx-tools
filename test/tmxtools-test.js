@@ -4,7 +4,7 @@ var expect = require('chai').expect
 var Jimp = require('jimp');
 var Q = require('q');
 
-describe('A TileMap', function () {
+describe('TmxTools', function () {
   context('getTileTopLeftCoordinates', function () {
     var tileWidth = 64;
     var tileHeight = 64;
@@ -155,6 +155,70 @@ describe('maybeAddTileInCoordinatesAsync', function () {
             expect(resultingTilesetData).to.be.deep.equal(expectedTilesetData);
           }
       );
+    })
+  })
+})
+
+describe('getTilesetImageDimesionInTiles', function () {
+  context('when called with a number of tiles which dont fully fit in' +
+      ' a square layout', function () {
+    it('like 5, should return a rectangular tileset dimension', function () {
+      var tilesetDimension = tmxTools.getTilesetImageDimesionInTiles(5);
+      expect(tilesetDimension).to.be.ok;
+      expect(tilesetDimension).to.be.deep.equal([3, 2]);
+    })
+
+    it('like 7, should return a square tileset dimension which wont be ' +
+        'completely filled up', function () {
+      var tilesetDimension = tmxTools.getTilesetImageDimesionInTiles(7);
+      expect(tilesetDimension).to.be.ok;
+      expect(tilesetDimension).to.be.deep.equal([3, 3]);
+    })
+  })
+
+  context('when called with a number of tiles which fully fit in' +
+      ' a square layout', function () {
+    it('like 4, should return a completely filled square tileset dimension',
+        function () {
+      var tilesetDimension = tmxTools.getTilesetImageDimesionInTiles(4);
+      expect(tilesetDimension).to.be.ok;
+      expect(tilesetDimension).to.be.deep.equal([2, 2]);
+    })
+  })
+})
+
+describe('getTileTargetPosition', function () {
+  context('given a square tileset dimension', function () {
+    it('should return a correct tile position for its index', function () {
+      var squareTilesetDimension = [2, 2];
+      var getTileTargetPositionByIndex =
+         tmxTools.getTileTargetPosition(squareTilesetDimension);
+      expect(getTileTargetPositionByIndex(2)).to.be.deep.equal([1, 0]);
+    })
+
+    it('should throw an error for a non positive index', function () {
+      var squareTilesetDimension = [2, 2];
+      var nonPositiveTileIndex = -1;
+      var getTileTargetPositionByIndex =
+          tmxTools.getTileTargetPosition(squareTilesetDimension);
+      var getTileTargetPositionByIndexWrapper = function () {
+        return getTileTargetPositionByIndex(nonPositiveTileIndex);
+      }
+      expect(getTileTargetPositionByIndexWrapper).to.throw('Cant get a ' +
+          'target position for a tile with non positive index');
+    })
+
+    it('should throw an error for a an index bigger than the tileset ' +
+        'dimenstion', function () {
+      var squareTilesetDimension = [2, 2];
+      var largeTileIndex = 4;
+      var getTileTargetPositionByIndex =
+          tmxTools.getTileTargetPosition(squareTilesetDimension);
+      var getTileTargetPositionByIndexWrapper = function () {
+        return getTileTargetPositionByIndex(largeTileIndex);
+      }
+      expect(getTileTargetPositionByIndexWrapper).to.throw('Cant get a ' +
+          'target position for a tile with index bigger than dimension');
     })
   })
 })

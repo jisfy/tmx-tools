@@ -14,17 +14,21 @@ var tileHeight = argv.s;
 Jimp.read(inputBitmapFileName).then(function (image) {
   console.log('image loaded, ...' + image.bitmap.width + '.' + image.bitmap.height);
   var tileTopLeftCoordinates = tmxTools.getTileTopLeftCoordinates(
-      image.bitmap.width, 
-      image.bitmap.height, 
-      tileWidth, 
+      image.bitmap.width,
+      image.bitmap.height,
+      tileWidth,
       tileHeight);
   // var tileset = tmxTools.tilesetFromImage(image, tileTopLeftCoordinates);
-  var tilesetPromise = tmxTools.tilesetFromImage(image, tileTopLeftCoordinates, tileWidth, tileHeight);
-  tilesetPromise.then(function (tileset) {
-    console.log('...... tileset ' + tileset.mapping);
+  var tileset$ = tmxTools.tilesetFromImage(image, tileTopLeftCoordinates, tileWidth, tileHeight);
+  tileset$.then(function (tileset) {
     var g = 0;
     _.each(tileset.tiles, x => {var filename = "./assets/p_" + g + ".png";console.log("writing " + filename);x.write(filename); g++;});
+    tmxTools.writeTmxFile(tileset, 3, 3, 64, 64);
+    console.log('------> tileset.tiles.length ' + tileset.tiles.length);
+    var tilesetDimension = tmxTools.getTilesetImageDimesionInTiles(tileset.tiles.length);
+    tmxTools.doSomething(tileset, tilesetDimension, 64, 64);
   });
+
   // console.log('...... tileset ' + tileset.mapping);
   // var g = 0;
   // _.each(tileset.tiles, x => {var filename = "./assets/p_" + g + ".png";console.log("writing " + filename);x.write(filename); g++;});
@@ -32,4 +36,3 @@ Jimp.read(inputBitmapFileName).then(function (image) {
 }).catch(function (err) {
   console.log('couldnt load image ' + err.message);
 });
-

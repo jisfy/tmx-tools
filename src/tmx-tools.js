@@ -4,14 +4,6 @@ var Jimp = require('jimp');
 var _ = require('underscore');
 var Q = require('q');
 
-var tmxOutputFile = new XmlWriter(function (el) {
-  el('tmx-file', function (el, at) {
-    el('tile-set', function (el, at) {
-      at('name', 'test.png');
-    });
-  });
-}, { addDeclaration : true });
-
 /**
  * Generates a list of pairs holding the top-left coordinates for each tile
  * candidate in the source image
@@ -46,6 +38,7 @@ function getTileTopLeftCoordinates(imageWidth, imageHeight, tileWidth, tileHeigh
 
 /**
  * Creates a TileSet from an Image
+ *
  * @param {Jimp} image - a bitmap image from where to bild the TileSet
  * @param {Array<Array<number, number>>} tileTopLeftCoordinates - a
  *     list of pairs containing the top-left coordinates of each tile
@@ -89,6 +82,8 @@ function tilesetFromImage(image, tileTopLeftCoordinates, tileWidth, tileHeight) 
 }
 
 /**
+ * Builds a Tile from a source Image
+ *
  * @param {Jimp} image - the source image from which to build the Tile
  * @param {Array<number>} topLeftIndex - a pair with the top-left indexes
  *     of the Tile in the source image
@@ -103,7 +98,6 @@ function buildTileImage(image, topLeftIndex, tileWidth, tileHeight) {
   var tileTargetVerticalPosition = 0;
   var sourceImageHorizontalPosition = topLeftIndex[0] * tileWidth;
   var sourceImageVerticalPosition = topLeftIndex[1] * tileHeight;
-
   var tile = new Jimp(tileWidth, tileHeight);
   tile.blit(image,
       tileTargetHorizontalPosition,
@@ -135,10 +129,10 @@ function maybeAddTileInCoordinates(tileIndexLeft, tileIndexTop, tile) {
       var isTileBase64InTileset = tileBase64 in tilesetData.tileMapping;
       if (!isTileBase64InTileset) {
         tilesetData.tiles.push(tile);
-        if (tilesetData.mapping[tileIndexLeft] === undefined) {
-          tilesetData.mapping[tileIndexLeft] = [];
-        }
         tilesetData.tileMapping[tileBase64] = (tilesetData.tiles.length - 1);
+      }
+      if (tilesetData.mapping[tileIndexLeft] === undefined) {
+        tilesetData.mapping[tileIndexLeft] = [];
       }
       tilesetData.mapping[tileIndexLeft][tileIndexTop] =
           tilesetData.tileMapping[tileBase64];
@@ -147,8 +141,171 @@ function maybeAddTileInCoordinates(tileIndexLeft, tileIndexTop, tile) {
   return maybeAddTileInCoordinatesAsync;
 }
 
+/**
+ * Calculates the dimension of a Tileset Image (in number of tiles) able to
+ * host the number of tiles given
+ *
+ * @param {number} numberOfTilesInTileset - the number of Tiles our Tile Set
+ *     should be able to host
+ * @return {Array<number, number>} - a pair containing the number of rows, and
+ *     number of columns (in tile units) that our target Tile Set image should
+ *     have in order to host the given number of tiles
+ */
+function getTilesetImageDimesionInTiles(numberOfTilesInTileset) {
+  var tilesetSquareImageDimensionInTiles = Math.sqrt(numberOfTilesInTileset);
+  var tilesetSquareImageDimesionFloor =
+      Math.floor(tilesetSquareImageDimensionInTiles);
+  var tilesetSquareImageDimensionSquared =
+      Math.pow(tilesetSquareImageDimesionFloor, 2);
+  var remainingTilesNotInSquareImage =
+      numberOfTilesInTileset - tilesetSquareImageDimensionSquared;
+  var extraTileColumns = 0;
+  var extraTileRows = 0;
+  if (remainingTilesNotInSquareImage > 0) {
+    extraTileColumns = Math.floor(
+        remainingTilesNotInSquareImage / tilesetSquareImageDimesionFloor);
+    extraTileRows =
+        remainingTilesNotInSquareImage % tilesetSquareImageDimesionFloor;
+  }
+  var tilesetImageHorizontalDimension =
+      tilesetSquareImageDimesionFloor + extraTileColumns;
+  var tilesetImageVerticalDimension =
+      tilesetSquareImageDimesionFloor + extraTileRows;
+  var tilesetImageDimension =
+      [tilesetImageVerticalDimension, tilesetImageHorizontalDimension];
+  return tilesetImageDimension;
+}
+
+function writeTilesetImage(tilesetImageFilename, tilesetImage) {
+  var writeTilesetImage$ =
+      Q.ninvoke(tilesetImage, 'write', tilesetImageFilename);
+  return writeTilesetImage$;
+}
+
+function copyTile(tilesetImage, tile, tileHorizontalIndex, tileVerticalIndex) {
+  var tileWidth = tile.bitmap.width;
+  var tileHeight = tile.bitmap.height;
+  var sourceImageHorizontalPosition = 0;
+  var sourceImageVerticalPosition = 0;
+  var tileTargetHorizontalPosition = tileHorizontalIndex * tileWidth;
+  var tileTargetVerticalPosition = tileVerticalIndex * tileHeight;
+
+  tilesetImage.blit(tile,
+      tileTargetHorizontalPosition,
+      tileTargetVerticalPosition,
+      sourceImageHorizontalPosition,
+      sourceImageVerticalPosition,
+      tileWidth,
+      tileHeight);
+}
+
+function getTileTargetPosition(tilesetDimension) {
+  var getTileTargetPositionByIndex = function (tileIndex) {
+    if (tileIndex < 1) {
+      throw new Error('Cant get a target position for a tile with ' +
+          'non positive index');
+    }
+    var correctedTileIndex = tileIndex;
+    var tilesetNumberOfRows = tilesetDimension[0];
+    var tilesetNumberOfColumns = tilesetDimension[1];
+    var tileRowIndex = Math.floor(correctedTileIndex / tilesetNumberOfColumns);
+    if (tileRowIndex >= tilesetNumberOfRows) {
+      throw new Error('Cant get a target position for a tile with ' +
+          'index bigger than dimension');
+    }
+    var tileColumnIndex = Math.floor(correctedTileIndex % tilesetNumberOfColumns);
+    return [tileRowIndex, tileColumnIndex];
+  };
+  return getTileTargetPositionByIndex;
+}
+
+function doSomething(tilesetData, tilesetDimension, tileWidthPixels, tileHeightPixels) {
+  var tilesetWidthPixels = tilesetDimension[0] * tileHeightPixels;
+  var tilesetHeightPixels = tilesetDimension[1] * tileWidthPixels;
+  var tilesetImage = new Jimp(tilesetWidthPixels, tilesetHeightPixels);
+
+  _.range(1, tilesetDimension[1]);
+  _.map(tilesetData, )
+
+  console.log('--------- ' + _.range(1, tilesetDimension[1]));
+}
+
+/**
+ *
+ *
+ * @param {Object} tilesetData -
+ * @param {number} mapWidthTiles - the horizontal size of the map in tile units
+ * @param {number} mapHeightTiles - the vertical size of the map in tile units
+ * @param {number} tileWidthPixels - the width of a tile in pixels
+ * @param {number} tileHeightPixels - the height a tile in pixels
+ *
+ */
+function writeTmxFile(tilesetData, mapWidthTiles, mapHeightTiles,
+      tileWidthPixels, tileHeightPixels) {
+  var tilesetWidthTiles = 1;
+  var tilesetHeightTiles = 1;
+  var tmxMapVersion = '1.0';
+  var mapOrientation = 'orthogonal';
+  var layerName = 'layer';
+  var tilesetName = layerName;
+  var tilesetImageSource = layerName + '-Tileset.png';
+  var tilesetWidthPixels = tilesetWidthTiles * tileWidthPixels;
+  var tilesetHeightPixels = tilesetHeightTiles * tileHeightPixels;
+
+  var tmxOutputFile = new XmlWriter(function (el) {
+    el('map', function (el, at) {
+      at('version', tmxMapVersion);
+      at('orientation', mapOrientation);
+      at('width', mapWidthTiles);
+      at('height', mapHeightTiles);
+      at('tilewidth', tileWidthPixels);
+      at('tileheight', tileHeightPixels);
+      el('tileset', function (el, at) {
+        at('firstgid', 'test.png');
+        at('name', tilesetName);
+        at('tilewidth', tileWidthPixels);
+        at('tileheight', tileHeightPixels);
+        el('image', function (el, at) {
+          at('source', tilesetImageSource);
+          at('width', tilesetWidthPixels);
+          at('height', tilesetHeightPixels);
+        })
+      });
+      el('layer', function (el, at) {
+        at('name', layerName);
+        at('width', mapWidthTiles);
+        at('height', mapHeightTiles);
+        el('data', function (el, at) {
+          at('encoding', 'base64');
+          at('compression', 'test.png');
+        })
+      });
+    });
+  }, { addDeclaration : true });
+
+  console.log('*****' + tmxOutputFile);
+  /*
+  var gaita = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+       '<map version="1.0" orientation="orthogonal" width="' + gridWidth + '" height="' + gridHeight + '" tilewidth="' + tileWidth + '" tileheight="' + tileHeight + '">\n' +
+       ' <tileset firstgid="1" name="' + fbase + '" tilewidth="' + tileWidth + '" tileheight="' + tileHeight + '">\n' +
+       '  <image source="' + fbase + '-Tileset.png" width="' + gridWidth * tileWidth + '" height="' + gridHeight * tileHeight + '"/>\n' +
+       ' </tileset>\n' +
+       ' <layer name="' + fbase + '" width="' + gridWidth + '" height="' + gridHeight + '">\n' +
+       '  <data encoding="' + (arguments[1] ? arguments[1] : 'base64') + '"' + (comp ? ' compression="' + comp + '"' : '') + '>\n' +
+       '   ' + arguments[0] + '\n' +
+       '  </data>\n' +
+       ' </layer>\n' +
+       '</map>\n';
+   */
+}
+
 module.exports = {
   getTileTopLeftCoordinates: getTileTopLeftCoordinates,
   tilesetFromImage : tilesetFromImage,
   maybeAddTileInCoordinates : maybeAddTileInCoordinates,
+  writeTmxFile : writeTmxFile,
+  getTilesetImageDimesionInTiles : getTilesetImageDimesionInTiles,
+  writeTilesetImage : writeTilesetImage,
+  doSomething : doSomething,
+  getTileTargetPosition : getTileTargetPosition,
 };
