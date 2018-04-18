@@ -25,8 +25,8 @@ Jimp.read(inputBitmapFileName).then(function (image) {
     _.each(tileset.tiles, x => {var filename = "./assets/p_" + g + ".png";console.log("writing " + filename);x.write(filename); g++;});
     tmxTools.writeTmxFile(tileset, 3, 3, 64, 64);
     console.log('------> tileset.tiles.length ' + tileset.tiles.length);
-    var tilesetDimension = tmxTools.getTilesetImageDimesionInTiles(tileset.tiles.length);
-    tmxTools.doSomething(tileset, tilesetDimension, 64, 64);
+    var tilesetImageFilename = './assets/tileset.png';
+    tmxTools.buildTilesetImage(tilesetImageFilename, tileset, [64, 64]);
   });
 
   // console.log('...... tileset ' + tileset.mapping);

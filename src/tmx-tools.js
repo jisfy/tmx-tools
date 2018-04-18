@@ -151,21 +151,21 @@ function maybeAddTileInCoordinates(tileIndexLeft, tileIndexTop, tile) {
  *     number of columns (in tile units) that our target Tile Set image should
  *     have in order to host the given number of tiles
  */
-function getTilesetImageDimesionInTiles(numberOfTilesInTileset) {
-  var tilesetSquareImageDimensionInTiles = Math.sqrt(numberOfTilesInTileset);
-  var tilesetSquareImageDimesionFloor =
-      Math.floor(tilesetSquareImageDimensionInTiles);
-  var tilesetSquareImageDimensionSquared =
-      Math.pow(tilesetSquareImageDimesionFloor, 2);
-  var remainingTilesNotInSquareImage =
-      numberOfTilesInTileset - tilesetSquareImageDimensionSquared;
+function getTilesetImageSizeInTiles(numberOfTilesInTileset) {
+  var tilesetSquareImageSizeInTiles = Math.sqrt(numberOfTilesInTileset);
+  var tilesetSquareImageSizeInteger =
+      Math.floor(tilesetSquareImageSizeInTiles);
+  var tilesetSquareImageSizeSquared =
+      Math.pow(tilesetSquareImageSizeInteger, 2);
+  var remainingTilesNotFittingInSquareImage =
+      numberOfTilesInTileset - tilesetSquareImageSizeSquared;
   var extraTileColumns = 0;
   var extraTileRows = 0;
-  if (remainingTilesNotInSquareImage > 0) {
+  if (remainingTilesNotFittingInSquareImage > 0) {
     extraTileColumns = Math.floor(
-        remainingTilesNotInSquareImage / tilesetSquareImageDimesionFloor);
+        remainingTilesNotFittingInSquareImage / tilesetSquareImageSizeInteger);
     extraTileRows =
-        remainingTilesNotInSquareImage % tilesetSquareImageDimesionFloor;
+        remainingTilesNotFittingInSquareImage % tilesetSquareImageSizeInteger;
     if (extraTileColumns === 0) {
       // preferrably grow the tileset horizontally adding more columns
       // swap extra columns and rows if the original extra columns is zero
@@ -173,33 +173,26 @@ function getTilesetImageDimesionInTiles(numberOfTilesInTileset) {
       extraTileRows = 0;
     }
   }
-  var tilesetImageHorizontalDimension =
-      tilesetSquareImageDimesionFloor + extraTileRows;
-  var tilesetImageVerticalDimension =
-      tilesetSquareImageDimesionFloor + extraTileColumns;
-  var tilesetImageDimension =
-      [tilesetImageHorizontalDimension, tilesetImageVerticalDimension];
-  console.log('----------> tilesetImageDimension ' + tilesetImageDimension +
+  var tilesetImageHorizontalSizeInTiles =
+      tilesetSquareImageSizeInteger + extraTileColumns;
+  var tilesetImageVerticalSizeInTiles =
+      tilesetSquareImageSizeInteger + extraTileRows;
+  var tilesetImageSizeInTiles =
+      [tilesetImageHorizontalSizeInTiles, tilesetImageVerticalSizeInTiles];
+  console.log('----------> tilesetImageSizeInTiles ' + tilesetImageSizeInTiles +
       '.. numberOfTilesInTileset ' + numberOfTilesInTileset);
-      // [tilesetImageVerticalDimension, tilesetImageHorizontalDimension];
-  return tilesetImageDimension;
+  return tilesetImageSizeInTiles;
 }
 
-function writeTilesetImage(tilesetImageFilename, tilesetImage) {
-  var writeTilesetImage$ =
-      Q.ninvoke(tilesetImage, 'write', tilesetImageFilename);
-  return writeTilesetImage$;
-}
-
-function copyTile(tilesetImage, tile, tileHorizontalIndex, tileVerticalIndex) {
+function copyTile(tilesetImage, tile, tilePositionInTileset) {
+  var tileHorizontalPositionInTileset = tilePositionInTileset[0];
+  var tileVerticalPositionInTileset = tilePositionInTileset[1];
   var tileWidth = tile.bitmap.width;
   var tileHeight = tile.bitmap.height;
   var sourceImageHorizontalPosition = 0;
   var sourceImageVerticalPosition = 0;
-  // var tileTargetHorizontalPosition = tileHorizontalIndex * tileWidth;
-  // var tileTargetVerticalPosition = tileVerticalIndex * tileHeight;
-  var tileTargetHorizontalPosition = tileVerticalIndex * tileWidth;
-  var tileTargetVerticalPosition =  tileHorizontalIndex * tileHeight;
+  var tileTargetHorizontalPosition = tileHorizontalPositionInTileset * tileWidth;
+  var tileTargetVerticalPosition =  tileVerticalPositionInTileset * tileHeight;
 
   tilesetImage.blit(tile,
       tileTargetHorizontalPosition,
@@ -218,42 +211,80 @@ function isTileIndexWithinBounds(tileRowIndex, tilesetNumberOfRows) {
   return (tileRowIndex < tilesetNumberOfRows);
 }
 
-function getTileTargetPosition(tilesetDimension) {
+/**
+ * Builds a closure on the Tile Set Size, which will calculate the position of
+ * a Tile given its index in the target Tile Set image
+ *
+ * @param {Array<number>} tilesetSizeInTiles - a pair with the size of the Tile
+ *     Set in Tile units, where;
+ *     - tilesetSizeInTiles[0] : is the horizontal size in Tile units (or number of columns)
+ *     - tilesetSizeInTiles[1] : is the vertical size in Tile units (or number of rows)
+ * @return {function} - (number) => Array<number> , a function that given a tile
+ *     index (in the complete list of tiles of the target Tile Set), will return
+ *     its corresponding position (in Tile units) in the target Tile Set image
+ *
+ */
+function getTileTargetPositionInTileset(tilesetSizeInTiles) {
   var getTileTargetPositionByIndex = function (tileIndex) {
     if (!isTileIndexNonNegative(tileIndex)) {
       throw new Error('Cant get a target position for a tile with ' +
           'non positive index');
     }
-    var tilesetNumberOfRows = tilesetDimension[0];
-    var tilesetNumberOfColumns = tilesetDimension[1];
+    var tilesetNumberOfRows = tilesetSizeInTiles[1];
+    var tilesetNumberOfColumns = tilesetSizeInTiles[0];
     var tileRowIndex = Math.floor(tileIndex / tilesetNumberOfColumns);
-    console.log('-------- getTileTargetPositionByIndex ' + tileIndex + ',' + tileRowIndex + '..' + tilesetDimension);
+    console.log('-------- getTileTargetPositionByIndex ' + tileIndex + ',' + tileRowIndex + '..' + tilesetSizeInTiles);
     if (!isTileIndexWithinBounds(tileRowIndex, tilesetNumberOfRows)) {
       throw new Error('Cant get a target position for a tile with ' +
           'index bigger than dimension');
     }
     var tileColumnIndex = Math.floor(tileIndex % tilesetNumberOfColumns);
-    return [tileRowIndex, tileColumnIndex];
+    return [tileColumnIndex, tileRowIndex];
   };
   return getTileTargetPositionByIndex;
 }
 
-function doSomething(tilesetData, tilesetDimension, tileWidthPixels, tileHeightPixels) {
-  var tilesetWidthPixels = tilesetDimension[1] * tileWidthPixels;
-  var tilesetHeightPixels = tilesetDimension[0] * tileHeightPixels;
+/**
+ * Writes a given Tile Set image to the filesystem under the given file path
+ *
+ * @param {string} tilesetImageFilename - the filename path in the filesystem
+ *     where we would like to write the Tile Set image
+ * @return {Promise} - a Promise of a Tile Set Image being written to the
+ *     filesystem in the given path
+ */
+function writeTilesetImage(tilesetImageFilename, tilesetImage) {
+  var writeTilesetImage$ =
+      Q.ninvoke(tilesetImage, 'write', tilesetImageFilename);
+  return writeTilesetImage$;
+}
+
+/**
+ * Builds and writes a Tile Set Image to the filesystem
+ *
+ * @param {string} tilesetImageFilename - the path where to write the Tile Set
+ *     image in the filesystem
+ * @param {Object} tilesetData - the TilesetData object holding the list of
+ *     Tiles to use to build the Tile Set Image
+ * @param {Array<number>} tileSizePixels - a pair containing the width and
+ *     height in pixels of a Tile
+ * @return {Promise} - a Promise of the Tile Set Image being written to the
+ *     filesystem correctly
+ */
+function buildTilesetImage(tilesetImageFilename, tilesetData, tileSizePixels) {
+  var tilesetSizeInTiles = getTilesetImageSizeInTiles(tilesetData.tiles.length);
+  var tilesetWidthPixels = tilesetSizeInTiles[0] * tileSizePixels[0];
+  var tilesetHeightPixels = tilesetSizeInTiles[1] * tileSizePixels[1];
   var tilesetImage = new Jimp(tilesetWidthPixels, tilesetHeightPixels);
 
-  var getTileTargetPositionByIndex = getTileTargetPosition(tilesetDimension);
-  var gaita = (tile, index) => {
-    var tilePosition = getTileTargetPositionByIndex(index);
-    console.log('-------- copying tile ' + index + ',' + tilePosition + '..' + tilesetDimension);
-    copyTile(tilesetImage, tile, tilePosition[0], tilePosition[1]);
+  var getTileTargetPositionByIndex =
+      getTileTargetPositionInTileset(tilesetSizeInTiles);
+  var copyTileIntoCorrespodingPositionInTilesetImage = (tile, index) => {
+    var tilePositionInTilesetImage = getTileTargetPositionByIndex(index);
+    console.log('-------- copying tile ' + index + ',' + tilePositionInTilesetImage + '..' + tilesetSizeInTiles);
+    copyTile(tilesetImage, tile, tilePositionInTilesetImage);
   };
-  _.map(tilesetData.tiles, gaita);
-  var tilesetImageFilename = './assets/tileset.png';
-  writeTilesetImage(tilesetImageFilename, tilesetImage).then(function () {
-    console.log('.... tileset written');
-  });
+  _.map(tilesetData.tiles, copyTileIntoCorrespodingPositionInTilesetImage);
+  return writeTilesetImage(tilesetImageFilename, tilesetImage);
 }
 
 /**
@@ -330,8 +361,8 @@ module.exports = {
   tilesetFromImage : tilesetFromImage,
   maybeAddTileInCoordinates : maybeAddTileInCoordinates,
   writeTmxFile : writeTmxFile,
-  getTilesetImageDimesionInTiles : getTilesetImageDimesionInTiles,
+  getTilesetImageSizeInTiles : getTilesetImageSizeInTiles,
   writeTilesetImage : writeTilesetImage,
-  doSomething : doSomething,
-  getTileTargetPosition : getTileTargetPosition,
+  buildTilesetImage : buildTilesetImage,
+  getTileTargetPositionInTileset : getTileTargetPositionInTileset,
 };
