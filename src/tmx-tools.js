@@ -5,6 +5,7 @@ var _ = require('underscore');
 var Q = require('q');
 var fs = require('fs');
 var path = require('path');
+var zlib = require('zlib');
 
 /**
  * Generates a list of pairs holding the top-left coordinates for each tile
@@ -293,6 +294,20 @@ function buildTilesetImage(tilesetImageFilename, tilesetData, tileSizePixels) {
   return writeTilesetImage(tilesetImageFilename, tilesetImage);
 }
 
+var compression = {
+  gzip : function (buffer) {
+    var gzippedBuffer = zlib.gzipSync(buffer);
+    return gzippedBuffer;
+  },
+  zlib : function (buffer) {
+    var zlibbedBuffer = zlib.deflateSync(buffer);
+    return zlibbedBuffer;
+  },
+  none : function (buffer) {
+    return buffer;
+  },
+};
+
 /**
  * Builds the Data content for a Tmx Layer. The content will be a list of 32
  * bit, unsigned integers, with little endian encoding, then encoded in Base64
@@ -305,7 +320,7 @@ function buildTilesetImage(tilesetImageFilename, tilesetData, tileSizePixels) {
  *     to the position of the Tile in the original bitmap image. This is, a
  *     flattened down version of the TilesetData.mapping matrix
  */
-function buildLayerData(tilesetData) {
+function buildLayerData(tilesetData, compressionAlgorithm) {
   var flattenedTilesetMapping =
       _.flatten(tilesetData.mapping, true).map(x => x + 1);
   var unsigned32IntArrayTilesetMapping =
@@ -313,7 +328,9 @@ function buildLayerData(tilesetData) {
   var tilesetBuffer =
       Buffer.from(unsigned32IntArrayTilesetMapping.buffer, 0,
           unsigned32IntArrayTilesetMapping.byteLength);
-  return tilesetBuffer.toString('base64');
+  var tilesetZipped = compression[compressionAlgorithm](tilesetBuffer);
+  var tilesetZippedBase64 = tilesetZipped.toString('base64');
+  return tilesetZippedBase64;
 }
 
 /**
@@ -326,7 +343,8 @@ function buildLayerData(tilesetData) {
  * @param {number} tileHeightPixels - the height a tile in pixels
  *
  */
-function writeTmxFile(outputFilename, tilesetData, mapSizeTiles, tileSizePixels) {
+function writeTmxFile(outputFilename, tilesetData, mapSizeTiles,
+      tileSizePixels, compressionAlgorithm) {
   var mapWidthTiles = mapSizeTiles[0];
   var mapHeightTiles = mapSizeTiles[1];
   var tmxMapVersion = '1.0';
@@ -343,7 +361,7 @@ function writeTmxFile(outputFilename, tilesetData, mapSizeTiles, tileSizePixels)
   tilesetImage$.then(function (tilesetImage) {
     var tilesetWidthPixels = tilesetImage.bitmap.width;
     var tilesetHeightPixels = tilesetImage.bitmap.height;
-    var layerDataInBase64 = buildLayerData(tilesetData);
+    var encodedLayerData = buildLayerData(tilesetData, compressionAlgorithm);
     var firstgid = 1;
     var tmxOutputFile = new XmlWriter(function (el) {
       el('map', function (el, at) {
@@ -370,8 +388,10 @@ function writeTmxFile(outputFilename, tilesetData, mapSizeTiles, tileSizePixels)
           at('height', mapHeightTiles);
           el('data', function (el, at, text) {
             at('encoding', 'base64');
-            /* at('compression', '');*/
-            text(layerDataInBase64);
+            if (compressionAlgorithm != 'none') {
+              at('compression', compressionAlgorithm);
+            }
+            text(encodedLayerData);
           })
         });
       });

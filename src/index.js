@@ -8,10 +8,12 @@ var optionDescriptions = {
   i : 'sets the source bitmap image to the given filename',
   o : 'sets the output tmx filename to the given filename',
   s : 'sets the target tile size in pixels. Tiles are square',
+  z : 'sets the compression for the Layer Data (gzip, zlib, none)'
 };
 
 var defaultOptionValues = {
   s : 64,
+  z : 'gzip',
 };
 
 var argv = require('optimist').usage('\n Converts a bitmap image into a ' +
@@ -20,14 +22,15 @@ var argv = require('optimist').usage('\n Converts a bitmap image into a ' +
             default(defaultOptionValues).wrap(80).check(areArgumentsValid).
                 demand(['i', 'o']).argv;
 
+
 /**
- * Checks that all arguments passed in the command line are valid
- * @throws {Error} - In case one of the arguments passed from the command line
- *     is not valid
- *     - Argument 's' should be a non zero, positive integer and a power of two
+ * Checks that the -s argument passed in the command line is valid
+ *
+ * @throws {Error} - In case the argument's value is not a non zero, non
+ *     positive integer and a power of two, and is therefore considered
+ *     invalid
  */
-function areArgumentsValid(argv) {
-  var sArgumentValue = argv.s;
+function isSArgumentValid(sArgumentValue) {
   if (sArgumentValue != undefined) {
     var isSNumber = Number.isInteger(sArgumentValue);
     var isSPowerOfTwo = false;
@@ -41,6 +44,28 @@ function areArgumentsValid(argv) {
       throw new Error('the Tile size must be a positive integer and a power of two');
     }
   }
+}
+
+function isZArgumentValid(zArgumentValue) {
+  if (zArgumentValue != undefined) {
+    var isZGzip = ('gzip' === zArgumentValue);
+    var isZZlib = ('zlib' === zArgumentValue);
+    var isZNone = ('none' === zArgumentValue);
+    var zArgumentValueValid = isZGzip || isZZlib || isZNone;
+    if (!zArgumentValueValid) {
+      throw new Error('the compression algorithm must be (gzip | zlib | none)');
+    }
+  }
+}
+
+/**
+ * Checks that all arguments passed in the command line are valid
+ * @throws {Error} - In case one of the arguments passed from the command line
+ *     is not valid
+ */
+function areArgumentsValid(argv) {
+  isSArgumentValid(argv.s);
+  isZArgumentValid(argv.z);
 }
 
 /**
@@ -64,6 +89,7 @@ var inputBitmapFileName = argv.i;
 var outputTileMapFileName = argv.o;
 var tileWidth = argv.s;
 var tileHeight = argv.s;
+var compressionAlgorithm = argv.z;
 
 Jimp.read(inputBitmapFileName).then(function (image) {
   var tileTopLeftCoordinates = tmxTools.getTileTopLeftCoordinates(
@@ -86,7 +112,8 @@ Jimp.read(inputBitmapFileName).then(function (image) {
         outputTileMapFileName,
         tileset,
         [mapWidthInTiles, mapHeightInTiles],
-        [tileWidth, tileHeight]
+        [tileWidth, tileHeight],
+        compressionAlgorithm,
     );
     return writeTmxFile$
   });
