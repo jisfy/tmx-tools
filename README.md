@@ -30,7 +30,22 @@ _and its corresponding Tile Set_
 node src/index.js -s 64 -i ./examples/simple/test.png -o ./examples/simple/test.tmx
 ```
 
-## Inspiration
+#### Building the tools
+TmxTools makes use of several Node.js modules, which you will need to have
+downloaded locally, before it can work its magic. The required modules are listed
+in the package.json file, as in any classic Node.js application. In order
+to download all required packages, go to your terminal window and type:
+```
+npm install
+```
 
+#### Running the Tests
+TmxTools comes with a set of Unit Tests that use Mocha.js, Chai.js, etc. In order
+to run them, simply type:
+```
+npm test
+```
+
+## Inspiration
 TmxTools was first inspired by another OpenSource project,
 [Image2Map.py](https://github.com/bjorn/tiled/wiki/Import-from-Image)
