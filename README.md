@@ -23,9 +23,14 @@ _a sample input bitmap_
 
 _and its corresponding Tile Set_
 
-![An output Tile Set](examples/simple/test-Tileset.png)
+![An output TileSet](examples/simple/test-Tileset.png)
 
 #### From the command line
 ```
 node src/index.js -s 64 -i ./examples/simple/test.png -o ./examples/simple/test.tmx
 ```
+
+## Inspiration
+
+TmxTools was first inspired by another OpenSource project,
+[Image2Map.py](https://github.com/bjorn/tiled/wiki/Import-from-Image)
