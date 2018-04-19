@@ -2,8 +2,8 @@
 
 TmxTools is a set of tools to help you work with TileMaps. Particularly with
 those with a [.tmx](http://docs.mapeditor.org/en/latest/reference/tmx-map-format/) format.
-
-TmxTools is written in JavaScript, and can be used as a Node.js module or as a command line utility.
+It is written entirely in JavaScript, and can be used as a Node.js module or as
+a command line utility.
 
 ## Turning a bitmap into a TileMap
 
@@ -25,13 +25,24 @@ _and its corresponding Tile Set_
 
 ![An output TileSet](examples/simple/test-Tileset.png)
 
-#### Running
+### Running
 ```
 node src/index.js -s 64 -i ./examples/simple/test.png -o ./examples/simple/test.tmx
 ```
+#### Options
+**TmxTools* supports several options when run from the command line.
 
-#### Building
-*TmxTools* makes use of several Node.js modules, which you will need to have
+* -i The path to the input bitmap we would like to turn into a TileMap [required]
+* -o The path to the output .tmx file where we would like to write our generated TileMap
+* -s Tile Size in pixels. Tiles are always squared, with a non zero, positive, power of two size.
+  * 64 [default]
+* -z Compression Algorithm.
+  * gzip [default]
+  * zlib
+  * none
+
+### Building
+**TmxTools** makes use of several Node.js modules, which you will need to have
 downloaded locally, before it can work its magic. The required modules are listed
 in the package.json file, as in any classic Node.js application. In order
 to download all required packages, go to your terminal window and type:
@@ -42,9 +53,8 @@ The project also has JsDoc documentation. In order to generate it, type:
 ```
 npm run docs
 ```
-
-#### Running the Tests
-*TmxTools* comes with a set of Unit Tests that use Mocha.js, Chai.js, etc. In order
+### Running the Tests
+**TmxTools** comes with a set of Unit Tests that use Mocha.js, Chai.js, etc. In order
 to run them, simply type:
 ```
 npm test

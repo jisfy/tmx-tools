@@ -401,20 +401,6 @@ function writeTmxFile(outputFilename, tilesetData, mapSizeTiles,
         fsDenoified(outputFilename, tmxOutputFile.toString());
     return writeTmxFile$;
   })
-
-  /*
-  var gaita = '<?xml version="1.0" encoding="UTF-8"?>\n' +
-       '<map version="1.0" orientation="orthogonal" width="' + gridWidth + '" height="' + gridHeight + '" tilewidth="' + tileWidth + '" tileheight="' + tileHeight + '">\n' +
-       ' <tileset firstgid="1" name="' + fbase + '" tilewidth="' + tileWidth + '" tileheight="' + tileHeight + '">\n' +
-       '  <image source="' + fbase + '-Tileset.png" width="' + gridWidth * tileWidth + '" height="' + gridHeight * tileHeight + '"/>\n' +
-       ' </tileset>\n' +
-       ' <layer name="' + fbase + '" width="' + gridWidth + '" height="' + gridHeight + '">\n' +
-       '  <data encoding="' + (arguments[1] ? arguments[1] : 'base64') + '"' + (comp ? ' compression="' + comp + '"' : '') + '>\n' +
-       '   ' + arguments[0] + '\n' +
-       '  </data>\n' +
-       ' </layer>\n' +
-       '</map>\n';
-   */
 }
 
 module.exports = {
