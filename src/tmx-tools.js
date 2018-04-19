@@ -3,6 +3,8 @@ var XmlWriter = require('simple-xml-writer').XmlWriter;
 var Jimp = require('jimp');
 var _ = require('underscore');
 var Q = require('q');
+var fs = require('fs');
+var path = require('path');
 
 /**
  * Generates a list of pairs holding the top-left coordinates for each tile
@@ -98,7 +100,6 @@ function buildTileImage(image, topLeftIndex, tileWidth, tileHeight) {
   var tileTargetVerticalPosition = 0;
   var sourceImageHorizontalPosition = topLeftIndex[1] * tileWidth;
   var sourceImageVerticalPosition = topLeftIndex[0] * tileHeight;
-
   var tile = new Jimp(tileWidth, tileHeight);
   tile.blit(image,
       tileTargetHorizontalPosition,
@@ -135,7 +136,6 @@ function maybeAddTileInCoordinates(tileIndexLeft, tileIndexTop, tile) {
       if (tilesetData.mapping[tileIndexLeft] === undefined) {
         tilesetData.mapping[tileIndexLeft] = [];
       }
-      console.log('------------> tileIndexLeft ' + tileIndexLeft + '.tileIndexTop ' + tileIndexTop);
       tilesetData.mapping[tileIndexLeft][tileIndexTop] =
           tilesetData.tileMapping[tileBase64];
       return Q(tilesetData);
@@ -181,11 +181,19 @@ function getTilesetImageSizeInTiles(numberOfTilesInTileset) {
       tilesetSquareImageSizeInteger + extraTileRows;
   var tilesetImageSizeInTiles =
       [tilesetImageHorizontalSizeInTiles, tilesetImageVerticalSizeInTiles];
-  console.log('----------> tilesetImageSizeInTiles ' + tilesetImageSizeInTiles +
-      '.. numberOfTilesInTileset ' + numberOfTilesInTileset);
+
   return tilesetImageSizeInTiles;
 }
 
+/**
+ * Copies the content of a given Tile into a target Tile Set image
+ *
+ * @param {Jimp} tilesetImage -the target Tile Set image where we would like
+ *     to copy the given Tile
+ * @param {Jimp} tile - the source Tile image to copy
+ * @param {Array<number>} tilePositionInTileset - the position (in tile units)
+ *     in the given Tile Set image where we would like to copy the source Tile
+ */
 function copyTile(tilesetImage, tile, tilePositionInTileset) {
   var tileHorizontalPositionInTileset = tilePositionInTileset[0];
   var tileVerticalPositionInTileset = tilePositionInTileset[1];
@@ -195,7 +203,6 @@ function copyTile(tilesetImage, tile, tilePositionInTileset) {
   var sourceImageVerticalPosition = 0;
   var tileTargetHorizontalPosition = tileHorizontalPositionInTileset * tileWidth;
   var tileTargetVerticalPosition =  tileVerticalPositionInTileset * tileHeight;
-
   tilesetImage.blit(tile,
       tileTargetHorizontalPosition,
       tileTargetVerticalPosition,
@@ -235,7 +242,6 @@ function getTileTargetPositionInTileset(tilesetSizeInTiles) {
     var tilesetNumberOfRows = tilesetSizeInTiles[1];
     var tilesetNumberOfColumns = tilesetSizeInTiles[0];
     var tileRowIndex = Math.floor(tileIndex / tilesetNumberOfColumns);
-    console.log('-------- getTileTargetPositionByIndex ' + tileIndex + ',' + tileRowIndex + '..' + tilesetSizeInTiles);
     if (!isTileIndexWithinBounds(tileRowIndex, tilesetNumberOfRows)) {
       throw new Error('Cant get a target position for a tile with ' +
           'index bigger than dimension');
@@ -277,12 +283,10 @@ function buildTilesetImage(tilesetImageFilename, tilesetData, tileSizePixels) {
   var tilesetWidthPixels = tilesetSizeInTiles[0] * tileSizePixels[0];
   var tilesetHeightPixels = tilesetSizeInTiles[1] * tileSizePixels[1];
   var tilesetImage = new Jimp(tilesetWidthPixels, tilesetHeightPixels);
-
   var getTileTargetPositionByIndex =
       getTileTargetPositionInTileset(tilesetSizeInTiles);
   var copyTileIntoCorrespodingPositionInTilesetImage = (tile, index) => {
     var tilePositionInTilesetImage = getTileTargetPositionByIndex(index);
-    console.log('-------- copying tile ' + index + ',' + tilePositionInTilesetImage + '..' + tilesetSizeInTiles);
     copyTile(tilesetImage, tile, tilePositionInTilesetImage);
   };
   _.map(tilesetData.tiles, copyTileIntoCorrespodingPositionInTilesetImage);
@@ -290,8 +294,16 @@ function buildTilesetImage(tilesetImageFilename, tilesetData, tileSizePixels) {
 }
 
 /**
- * @param {Object} tilesetData -
- * @return 
+ * Builds the Data content for a Tmx Layer. The content will be a list of 32
+ * bit, unsigned integers, with little endian encoding, then encoded in Base64
+ *
+ * @param {Object} tilesetData - the TilesetData object holding the mapping of
+ *     Tile positions in the original bitmap image to actual Tile indexes
+ * @return {string} - a Base64 encoded string, built from a list of little
+ *     endian, 32 bit, unsigned integers, holding the indexes of Tiles in a
+ *     Tile Set image. The position in the list of 32 bit integers, correspond
+ *     to the position of the Tile in the original bitmap image. This is, a
+ *     flattened down version of the TilesetData.mapping matrix
  */
 function buildLayerData(tilesetData) {
   var flattenedTilesetMapping =
@@ -314,17 +326,20 @@ function buildLayerData(tilesetData) {
  * @param {number} tileHeightPixels - the height a tile in pixels
  *
  */
-function writeTmxFile(tilesetData, mapSizeTiles, tileSizePixels) {
+function writeTmxFile(outputFilename, tilesetData, mapSizeTiles, tileSizePixels) {
   var mapWidthTiles = mapSizeTiles[0];
   var mapHeightTiles = mapSizeTiles[1];
   var tmxMapVersion = '1.0';
   var mapOrientation = 'orthogonal';
-  var layerName = 'layer';
+  var layerNameWithExtension = path.basename(outputFilename);
+  var layerNameExtension = path.extname(layerNameWithExtension);
+  var layerName = path.basename(layerNameWithExtension, layerNameExtension);
+  var tilesetPath = path.dirname(outputFilename);
   var tilesetName = layerName;
-  var tilesetImageSource = layerName + '-Tileset.png';
-
+  var tilesetImageSource =  layerName + '-Tileset.png';
+  var fullTilesetImagePath = tilesetPath + '/' + tilesetImageSource;
   var tilesetImage$ =
-      buildTilesetImage(tilesetImageSource, tilesetData, tileSizePixels);
+      buildTilesetImage(fullTilesetImagePath, tilesetData, tileSizePixels);
   tilesetImage$.then(function (tilesetImage) {
     var tilesetWidthPixels = tilesetImage.bitmap.width;
     var tilesetHeightPixels = tilesetImage.bitmap.height;
@@ -355,13 +370,16 @@ function writeTmxFile(tilesetData, mapSizeTiles, tileSizePixels) {
           at('height', mapHeightTiles);
           el('data', function (el, at, text) {
             at('encoding', 'base64');
-            /* at('compression', 'test.png');*/
+            /* at('compression', '');*/
             text(layerDataInBase64);
           })
         });
       });
     }, { addDeclaration : true });
-    console.log('*****' + tmxOutputFile);
+    var fsDenoified = Q.denodeify(fs.writeFile);
+    var writeTmxFile$ =
+        fsDenoified(outputFilename, tmxOutputFile.toString());
+    return writeTmxFile$;
   })
 
   /*
