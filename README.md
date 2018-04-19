@@ -30,10 +30,10 @@ _and its corresponding Tile Set_
 node src/index.js -s 64 -i ./examples/simple/test.png -o ./examples/simple/test.tmx
 ```
 #### Options
-**TmxTools* supports several options when run from the command line.
+**TmxTools** supports several options when run from the command line.
 
 * -i The path to the input bitmap we would like to turn into a TileMap [required]
-* -o The path to the output .tmx file where we would like to write our generated TileMap
+* -o The path to the output .tmx file where we would like to write our generated TileMap [required]
 * -s Tile Size in pixels. Tiles are always squared, with a non zero, positive, power of two size.
   * 64 [default]
 * -z Compression Algorithm.

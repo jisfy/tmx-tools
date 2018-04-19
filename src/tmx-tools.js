@@ -176,6 +176,7 @@ function getTilesetImageSizeInTiles(numberOfTilesInTileset) {
       extraTileRows = 0;
     }
   }
+
   var tilesetImageHorizontalSizeInTiles =
       tilesetSquareImageSizeInteger + extraTileColumns;
   var tilesetImageVerticalSizeInTiles =
@@ -333,25 +334,66 @@ function buildLayerData(tilesetData, compressionAlgorithm) {
   return tilesetZippedBase64;
 }
 
+function getLayerName(outputFilename) {
+  var layerNameWithExtension = path.basename(outputFilename);
+  var layerNameExtension = path.extname(layerNameWithExtension);
+  var layerName = path.basename(layerNameWithExtension, layerNameExtension);
+  return layerName;
+}
+
+function writeTmxMapAttributes(at, mapSizeTiles, tileSizePixels) {
+  var tmxMapVersion = '1.0';
+  var mapOrientation = 'orthogonal';
+  at('version', tmxMapVersion);
+  at('orientation', mapOrientation);
+  at('width', mapSizeTiles[0]);
+  at('height', mapSizeTiles[1]);
+  at('tilewidth', tileSizePixels[0]);
+  at('tileheight', tileSizePixels[1]);
+}
+
+function writeTmxTilesetElement(el, firstgid, tilesetName,
+      tilesetImageSource, tileSizePixels, tilesetSizePixels) {
+  el('tileset', function (el, at) {
+    at('firstgid', firstgid);
+    at('name', tilesetName);
+    at('tilewidth', tileSizePixels[0]);
+    at('tileheight', tileSizePixels[1]);
+    el('image', function (el, at) {
+      at('source', tilesetImageSource);
+      at('width', tilesetSizePixels[0]);
+      at('height', tilesetSizePixels[1]);
+    })
+  });
+}
+
+function writeTmxLayerElement(el, layerName, tilesetData,
+      mapSizeTiles, compressionAlgorithm) {
+  var encodedLayerData = buildLayerData(tilesetData, compressionAlgorithm);
+  el('layer', function (el, at) {
+    at('name', layerName);
+    at('width', mapSizeTiles[0]);
+    at('height', mapSizeTiles[1]);
+    el('data', function (el, at, text) {
+      at('encoding', 'base64');
+      if (compressionAlgorithm != 'none') {
+        at('compression', compressionAlgorithm);
+      }
+      text(encodedLayerData);
+    })
+  });
+}
+
 /**
- *
- *
  * @param {Object} tilesetData -
  * @param {number} mapWidthTiles - the horizontal size of the map in tile units
  * @param {number} mapHeightTiles - the vertical size of the map in tile units
  * @param {number} tileWidthPixels - the width of a tile in pixels
  * @param {number} tileHeightPixels - the height a tile in pixels
- *
  */
 function writeTmxFile(outputFilename, tilesetData, mapSizeTiles,
       tileSizePixels, compressionAlgorithm) {
-  var mapWidthTiles = mapSizeTiles[0];
-  var mapHeightTiles = mapSizeTiles[1];
-  var tmxMapVersion = '1.0';
-  var mapOrientation = 'orthogonal';
-  var layerNameWithExtension = path.basename(outputFilename);
-  var layerNameExtension = path.extname(layerNameWithExtension);
-  var layerName = path.basename(layerNameWithExtension, layerNameExtension);
+  var layerName = getLayerName(outputFilename);
   var tilesetPath = path.dirname(outputFilename);
   var tilesetName = layerName;
   var tilesetImageSource =  layerName + '-Tileset.png';
@@ -359,41 +401,16 @@ function writeTmxFile(outputFilename, tilesetData, mapSizeTiles,
   var tilesetImage$ =
       buildTilesetImage(fullTilesetImagePath, tilesetData, tileSizePixels);
   tilesetImage$.then(function (tilesetImage) {
-    var tilesetWidthPixels = tilesetImage.bitmap.width;
-    var tilesetHeightPixels = tilesetImage.bitmap.height;
-    var encodedLayerData = buildLayerData(tilesetData, compressionAlgorithm);
+    var tilesetSizePixels =
+        [tilesetImage.bitmap.width, tilesetImage.bitmap.height];
     var firstgid = 1;
     var tmxOutputFile = new XmlWriter(function (el) {
       el('map', function (el, at) {
-        at('version', tmxMapVersion);
-        at('orientation', mapOrientation);
-        at('width', mapWidthTiles);
-        at('height', mapHeightTiles);
-        at('tilewidth', tileSizePixels[0]);
-        at('tileheight', tileSizePixels[1]);
-        el('tileset', function (el, at) {
-          at('firstgid', firstgid);
-          at('name', tilesetName);
-          at('tilewidth', tileSizePixels[0]);
-          at('tileheight', tileSizePixels[1]);
-          el('image', function (el, at) {
-            at('source', tilesetImageSource);
-            at('width', tilesetWidthPixels);
-            at('height', tilesetHeightPixels);
-          })
-        });
-        el('layer', function (el, at) {
-          at('name', layerName);
-          at('width', mapWidthTiles);
-          at('height', mapHeightTiles);
-          el('data', function (el, at, text) {
-            at('encoding', 'base64');
-            if (compressionAlgorithm != 'none') {
-              at('compression', compressionAlgorithm);
-            }
-            text(encodedLayerData);
-          })
-        });
+        writeTmxMapAttributes(at, mapSizeTiles, tileSizePixels);
+        writeTmxTilesetElement(el, firstgid, tilesetName,
+            tilesetImageSource, tileSizePixels, tilesetSizePixels);
+        writeTmxLayerElement(el, layerName, tilesetData,
+                  mapSizeTiles, compressionAlgorithm);
       });
     }, { addDeclaration : true });
     var fsDenoified = Q.denodeify(fs.writeFile);
