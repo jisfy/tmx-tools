@@ -96,8 +96,9 @@ function tilesetFromImage(image, tileTopLeftCoordinates, tileWidth, tileHeight) 
 function buildTileImage(image, topLeftIndex, tileWidth, tileHeight) {
   var tileTargetHorizontalPosition = 0;
   var tileTargetVerticalPosition = 0;
-  var sourceImageHorizontalPosition = topLeftIndex[0] * tileWidth;
-  var sourceImageVerticalPosition = topLeftIndex[1] * tileHeight;
+  var sourceImageHorizontalPosition = topLeftIndex[1] * tileWidth;
+  var sourceImageVerticalPosition = topLeftIndex[0] * tileHeight;
+
   var tile = new Jimp(tileWidth, tileHeight);
   tile.blit(image,
       tileTargetHorizontalPosition,
@@ -134,6 +135,7 @@ function maybeAddTileInCoordinates(tileIndexLeft, tileIndexTop, tile) {
       if (tilesetData.mapping[tileIndexLeft] === undefined) {
         tilesetData.mapping[tileIndexLeft] = [];
       }
+      console.log('------------> tileIndexLeft ' + tileIndexLeft + '.tileIndexTop ' + tileIndexTop);
       tilesetData.mapping[tileIndexLeft][tileIndexTop] =
           tilesetData.tileMapping[tileBase64];
       return Q(tilesetData);
@@ -288,6 +290,21 @@ function buildTilesetImage(tilesetImageFilename, tilesetData, tileSizePixels) {
 }
 
 /**
+ * @param {Object} tilesetData -
+ * @return 
+ */
+function buildLayerData(tilesetData) {
+  var flattenedTilesetMapping =
+      _.flatten(tilesetData.mapping, true).map(x => x + 1);
+  var unsigned32IntArrayTilesetMapping =
+      Uint32Array.from(flattenedTilesetMapping);
+  var tilesetBuffer =
+      Buffer.from(unsigned32IntArrayTilesetMapping.buffer, 0,
+          unsigned32IntArrayTilesetMapping.byteLength);
+  return tilesetBuffer.toString('base64');
+}
+
+/**
  *
  *
  * @param {Object} tilesetData -
@@ -311,6 +328,8 @@ function writeTmxFile(tilesetData, mapSizeTiles, tileSizePixels) {
   tilesetImage$.then(function (tilesetImage) {
     var tilesetWidthPixels = tilesetImage.bitmap.width;
     var tilesetHeightPixels = tilesetImage.bitmap.height;
+    var layerDataInBase64 = buildLayerData(tilesetData);
+    var firstgid = 1;
     var tmxOutputFile = new XmlWriter(function (el) {
       el('map', function (el, at) {
         at('version', tmxMapVersion);
@@ -320,7 +339,7 @@ function writeTmxFile(tilesetData, mapSizeTiles, tileSizePixels) {
         at('tilewidth', tileSizePixels[0]);
         at('tileheight', tileSizePixels[1]);
         el('tileset', function (el, at) {
-          at('firstgid', 'test.png');
+          at('firstgid', firstgid);
           at('name', tilesetName);
           at('tilewidth', tileSizePixels[0]);
           at('tileheight', tileSizePixels[1]);
@@ -334,9 +353,10 @@ function writeTmxFile(tilesetData, mapSizeTiles, tileSizePixels) {
           at('name', layerName);
           at('width', mapWidthTiles);
           at('height', mapHeightTiles);
-          el('data', function (el, at) {
+          el('data', function (el, at, text) {
             at('encoding', 'base64');
-            at('compression', 'test.png');
+            /* at('compression', 'test.png');*/
+            text(layerDataInBase64);
           })
         });
       });
