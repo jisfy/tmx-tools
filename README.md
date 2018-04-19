@@ -16,7 +16,9 @@ of this project. The simple folder under this directory contains a source image,
 that would act as the input to the **TmxTools**, and a generated **.tmx** file.
 
 _a sample input bitmap_
-  ![An input bitmap](master/examples/simple/test.png)
+
+![An input bitmap](examples/simple/test.png)
 
 _and its corresponding Tile Set_
+
 ![An output Tile Set](examples/simple/test-Tileset.png)
