@@ -108,13 +108,12 @@ Jimp.read(inputBitmapFileName).then(function (image) {
     // dumpTiles('./tiles', tileset);
     var mapWidthInTiles = Math.floor(image.bitmap.width / tileWidth);
     var mapHeightInTiles = Math.floor(image.bitmap.height / tileHeight);
-    var writeTmxFile$ = tmxTools.writeTmxFile(
-        outputTileMapFileName,
-        tileset,
-        [mapWidthInTiles, mapHeightInTiles],
-        [tileWidth, tileHeight],
-        compressionAlgorithm,
+    var tileMapConfig = new tmxTools.TileMapConfig(
+      outputTileMapFileName,
+      [mapWidthInTiles, mapHeightInTiles],
+      [tileWidth, tileHeight],
     );
+    var writeTmxFile$ = tmxTools.writeTmxFile(tileset, tileMapConfig);
     return writeTmxFile$
   });
   return tileset$;

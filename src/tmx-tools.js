@@ -280,10 +280,12 @@ function writeTilesetImage(tilesetImageFilename, tilesetImage) {
  * @return {Promise} - a Promise of the Tile Set Image being written to the
  *     filesystem correctly
  */
-function buildTilesetImage(tilesetImageFilename, tilesetData, tileSizePixels) {
+function buildTilesetImage(tilesetData, tileMapConfig) {
   var tilesetSizeInTiles = getTilesetImageSizeInTiles(tilesetData.tiles.length);
-  var tilesetWidthPixels = tilesetSizeInTiles[0] * tileSizePixels[0];
-  var tilesetHeightPixels = tilesetSizeInTiles[1] * tileSizePixels[1];
+  var tilesetWidthPixels =
+      tilesetSizeInTiles[0] * tileMapConfig.tileSizePixels[0];
+  var tilesetHeightPixels =
+      tilesetSizeInTiles[1] * tileMapConfig.tileSizePixels[1];
   var tilesetImage = new Jimp(tilesetWidthPixels, tilesetHeightPixels);
   var getTileTargetPositionByIndex =
       getTileTargetPositionInTileset(tilesetSizeInTiles);
@@ -292,7 +294,7 @@ function buildTilesetImage(tilesetImageFilename, tilesetData, tileSizePixels) {
     copyTile(tilesetImage, tile, tilePositionInTilesetImage);
   };
   _.map(tilesetData.tiles, copyTileIntoCorrespodingPositionInTilesetImage);
-  return writeTilesetImage(tilesetImageFilename, tilesetImage);
+  return writeTilesetImage(tileMapConfig.getTilesetImagePath(), tilesetImage);
 }
 
 var compression = {
@@ -309,12 +311,56 @@ var compression = {
   },
 };
 
+function TileMapConfig(fileName, mapSizeTiles, tileSizePixels) {
+  this.version = '1.0';
+  this.orientation = 'orthogonal';
+  this.compressionAlgorithm = 'gzip';
+  this.fileName = fileName;
+  this.mapSizeTiles = mapSizeTiles;
+  this.tileSizePixels = tileSizePixels;
+}
+
+TileMapConfig.prototype.getLayerName = function () {
+  var layerNameWithExtension = path.basename(this.fileName);
+  var layerNameExtension = path.extname(layerNameWithExtension);
+  var layerName = path.basename(layerNameWithExtension, layerNameExtension);
+  return layerName;
+}
+
+TileMapConfig.prototype.getTilesetName = function () {
+  var tilesetName = this.getLayerName();
+  return tilesetName;
+}
+
+TileMapConfig.prototype.getTilesetImageFileName = function () {
+  var layerName = this.getLayerName();
+  var tilesetImageFileName =  layerName + '-Tileset.png';
+  return tilesetImageFileName;
+}
+
+TileMapConfig.prototype.getTilesetImagePath = function () {
+  var tilesetImageFileName = this.getTilesetImageFileName();
+  var tilesetPath = path.dirname(this.fileName);
+  var tilesetImagePath = tilesetPath + '/' + tilesetImageFileName;
+  return tilesetImagePath;
+}
+
+function getLayerName(outputFilename) {
+  var layerNameWithExtension = path.basename(outputFilename);
+  var layerNameExtension = path.extname(layerNameWithExtension);
+  var layerName = path.basename(layerNameWithExtension, layerNameExtension);
+  return layerName;
+}
+
 /**
  * Builds the Data content for a Tmx Layer. The content will be a list of 32
  * bit, unsigned integers, with little endian encoding, then encoded in Base64
  *
  * @param {Object} tilesetData - the TilesetData object holding the mapping of
  *     Tile positions in the original bitmap image to actual Tile indexes
+ * @param {string} compressionAlgorithm - the Compression Algorithm to use to
+ *     compress the tileset data, prior to base64 encoding it. The accepted
+ *     values are those of the keys of the global "compression" object.
  * @return {string} - a Base64 encoded string, built from a list of little
  *     endian, 32 bit, unsigned integers, holding the indexes of Tiles in a
  *     Tile Set image. The position in the list of 32 bit integers, correspond
@@ -334,50 +380,40 @@ function buildLayerData(tilesetData, compressionAlgorithm) {
   return tilesetZippedBase64;
 }
 
-function getLayerName(outputFilename) {
-  var layerNameWithExtension = path.basename(outputFilename);
-  var layerNameExtension = path.extname(layerNameWithExtension);
-  var layerName = path.basename(layerNameWithExtension, layerNameExtension);
-  return layerName;
+function writeTmxMapAttributes(at, tileMapConfig) {
+  at('version', tileMapConfig.version);
+  at('orientation', tileMapConfig.orientation);
+  at('width', tileMapConfig.mapSizeTiles[0]);
+  at('height', tileMapConfig.mapSizeTiles[1]);
+  at('tilewidth', tileMapConfig.tileSizePixels[0]);
+  at('tileheight', tileMapConfig.tileSizePixels[1]);
 }
 
-function writeTmxMapAttributes(at, mapSizeTiles, tileSizePixels) {
-  var tmxMapVersion = '1.0';
-  var mapOrientation = 'orthogonal';
-  at('version', tmxMapVersion);
-  at('orientation', mapOrientation);
-  at('width', mapSizeTiles[0]);
-  at('height', mapSizeTiles[1]);
-  at('tilewidth', tileSizePixels[0]);
-  at('tileheight', tileSizePixels[1]);
-}
-
-function writeTmxTilesetElement(el, firstgid, tilesetName,
-      tilesetImageSource, tileSizePixels, tilesetSizePixels) {
+function writeTmxTilesetElement(el, firstgid, tileMapConfig, tilesetSizePixels) {
   el('tileset', function (el, at) {
     at('firstgid', firstgid);
-    at('name', tilesetName);
-    at('tilewidth', tileSizePixels[0]);
-    at('tileheight', tileSizePixels[1]);
+    at('name', tileMapConfig.getTilesetName());
+    at('tilewidth', tileMapConfig.tileSizePixels[0]);
+    at('tileheight', tileMapConfig.tileSizePixels[1]);
     el('image', function (el, at) {
-      at('source', tilesetImageSource);
+      at('source', tileMapConfig.getTilesetImageFileName());
       at('width', tilesetSizePixels[0]);
       at('height', tilesetSizePixels[1]);
     })
   });
 }
 
-function writeTmxLayerElement(el, layerName, tilesetData,
-      mapSizeTiles, compressionAlgorithm) {
-  var encodedLayerData = buildLayerData(tilesetData, compressionAlgorithm);
+function writeTmxLayerElement(el, tilesetData, tileMapConfig) {
+  var encodedLayerData =
+      buildLayerData(tilesetData, tileMapConfig.compressionAlgorithm);
   el('layer', function (el, at) {
-    at('name', layerName);
-    at('width', mapSizeTiles[0]);
-    at('height', mapSizeTiles[1]);
+    at('name', tileMapConfig.getLayerName());
+    at('width', tileMapConfig.mapSizeTiles[0]);
+    at('height', tileMapConfig.mapSizeTiles[1]);
     el('data', function (el, at, text) {
       at('encoding', 'base64');
-      if (compressionAlgorithm != 'none') {
-        at('compression', compressionAlgorithm);
+      if (tileMapConfig.compressionAlgorithm != 'none') {
+        at('compression', tileMapConfig.compressionAlgorithm);
       }
       text(encodedLayerData);
     })
@@ -391,31 +427,22 @@ function writeTmxLayerElement(el, layerName, tilesetData,
  * @param {number} tileWidthPixels - the width of a tile in pixels
  * @param {number} tileHeightPixels - the height a tile in pixels
  */
-function writeTmxFile(outputFilename, tilesetData, mapSizeTiles,
-      tileSizePixels, compressionAlgorithm) {
-  var layerName = getLayerName(outputFilename);
-  var tilesetPath = path.dirname(outputFilename);
-  var tilesetName = layerName;
-  var tilesetImageSource =  layerName + '-Tileset.png';
-  var fullTilesetImagePath = tilesetPath + '/' + tilesetImageSource;
-  var tilesetImage$ =
-      buildTilesetImage(fullTilesetImagePath, tilesetData, tileSizePixels);
+function writeTmxFile(tilesetData, tileMapConfig) {
+  var tilesetImage$ = buildTilesetImage(tilesetData, tileMapConfig);
   tilesetImage$.then(function (tilesetImage) {
     var tilesetSizePixels =
         [tilesetImage.bitmap.width, tilesetImage.bitmap.height];
     var firstgid = 1;
     var tmxOutputFile = new XmlWriter(function (el) {
       el('map', function (el, at) {
-        writeTmxMapAttributes(at, mapSizeTiles, tileSizePixels);
-        writeTmxTilesetElement(el, firstgid, tilesetName,
-            tilesetImageSource, tileSizePixels, tilesetSizePixels);
-        writeTmxLayerElement(el, layerName, tilesetData,
-                  mapSizeTiles, compressionAlgorithm);
+        writeTmxMapAttributes(at, tileMapConfig);
+        writeTmxTilesetElement(el, firstgid, tileMapConfig, tilesetSizePixels);
+        writeTmxLayerElement(el, tilesetData, tileMapConfig);
       });
     }, { addDeclaration : true });
     var fsDenoified = Q.denodeify(fs.writeFile);
     var writeTmxFile$ =
-        fsDenoified(outputFilename, tmxOutputFile.toString());
+        fsDenoified(tileMapConfig.fileName, tmxOutputFile.toString());
     return writeTmxFile$;
   })
 }
@@ -429,4 +456,5 @@ module.exports = {
   writeTilesetImage : writeTilesetImage,
   buildTilesetImage : buildTilesetImage,
   getTileTargetPositionInTileset : getTileTargetPositionInTileset,
+  TileMapConfig : TileMapConfig,
 };
