@@ -104,7 +104,7 @@ Jimp.read(inputBitmapFileName).then(function (image) {
       tileWidth,
       tileHeight
   );
-  tileset$.then(function (tileset) {
+  var writeTmxFile$ = tileset$.then(function (tileset) {
     // dumpTiles('./tiles', tileset);
     var mapWidthInTiles = Math.floor(image.bitmap.width / tileWidth);
     var mapHeightInTiles = Math.floor(image.bitmap.height / tileHeight);
@@ -113,10 +113,9 @@ Jimp.read(inputBitmapFileName).then(function (image) {
       [mapWidthInTiles, mapHeightInTiles],
       [tileWidth, tileHeight],
     );
-    var writeTmxFile$ = tmxTools.writeTmxFile(tileset, tileMapConfig);
-    return writeTmxFile$
+    return tmxTools.writeTmxFile(tileset, tileMapConfig);
   });
-  return tileset$;
+  return writeTmxFile$;
 }).then(function (tmxFile) {
   console.log('TileMap successfully generated at ' + outputTileMapFileName);
 }).catch(function (err) {

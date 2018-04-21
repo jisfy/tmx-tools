@@ -15,7 +15,7 @@ var zlib = require('zlib');
  * @param {number} imageHeight - the source image height in pixels
  * @param {number} tileWidth - the tile width in pixels
  * @param {number} tileHeight - the tile height in pixels
- * @return {Array<Array<number, number>>} a list of pairs holding the top-left
+ * @returns {Array<Array<number, number>>} a list of pairs holding the top-left
  *     coordinates for each tile candidate in the source image
  * @throws {Error} in case the imageWidth is not divisible by the tileWidth,
  *     or the imageHeight is not divisible by the tileHeight
@@ -46,7 +46,7 @@ function getTileTopLeftCoordinates(imageWidth, imageHeight, tileWidth, tileHeigh
  * @param {Array<Array<number, number>>} tileTopLeftCoordinates - a
  *     list of pairs containing the top-left coordinates of each tile
  *     in the given
- * @return {Object} an object containing the TileSet built with
+ * @returns {Object} an object containing the TileSet built with
  *     - tiles : a list of the Tile images
  *     - tileMapping : a dictionary whose entries are the Base64 values of
  *         tiles, and values being the index of that Tile in the tiles list.
@@ -92,7 +92,7 @@ function tilesetFromImage(image, tileTopLeftCoordinates, tileWidth, tileHeight) 
  *     of the Tile in the source image
  * @param {number} tileWidth - the width of the new Tile in pixels
  * @param {number} tileHeight - the height of the new Tile in pixels
- * @return {Jimp} - a new Tile of the given width and height, whose
+ * @returns {Jimp} - a new Tile of the given width and height, whose
  *     content pixels are copied from the corresponding position in the
  *     source image
  */
@@ -122,12 +122,12 @@ function buildTileImage(image, topLeftIndex, tileWidth, tileHeight) {
  * @param {number} tileIndexTop - the vertical index the Tile occupies in the
  *     source image
  * @param {Jimp} tile - the Tile bitmap to add to the Tile Set
- * @return {function} - A function (tilesetData, tileBase64) =>
+ * @returns {function} - A function (tilesetData, tileBase64) =>
  *     Promise(tilesetData) that will add the given Tile at position
  *     tileIndexLeft, tileIndexTop to the given Tile Set if its Base64
  *     encoding is not already present.
  */
-function maybeAddTileInCoordinates(tileIndexLeft, tileIndexTop, tile) {
+var maybeAddTileInCoordinates = function (tileIndexLeft, tileIndexTop, tile) {
   var maybeAddTileInCoordinatesAsync = function (tilesetData, tileBase64) {
       var isTileBase64InTileset = tileBase64 in tilesetData.tileMapping;
       if (!isTileBase64InTileset) {
@@ -150,7 +150,7 @@ function maybeAddTileInCoordinates(tileIndexLeft, tileIndexTop, tile) {
  *
  * @param {number} numberOfTilesInTileset - the number of Tiles our Tile Set
  *     should be able to host
- * @return {Array<number, number>} - a pair containing the number of rows, and
+ * @returns {Array<number, number>} - a pair containing the number of rows, and
  *     number of columns (in tile units) that our target Tile Set image should
  *     have in order to host the given number of tiles
  */
@@ -196,7 +196,7 @@ function getTilesetImageSizeInTiles(numberOfTilesInTileset) {
  * @param {Array<number>} tilePositionInTileset - the position (in tile units)
  *     in the given Tile Set image where we would like to copy the source Tile
  */
-function copyTile(tilesetImage, tile, tilePositionInTileset) {
+var copyTile = function (tilesetImage, tile, tilePositionInTileset) {
   var tileHorizontalPositionInTileset = tilePositionInTileset[0];
   var tileVerticalPositionInTileset = tilePositionInTileset[1];
   var tileWidth = tile.bitmap.width;
@@ -230,7 +230,7 @@ function isTileIndexWithinBounds(tileRowIndex, tilesetNumberOfRows) {
  *     Set in Tile units, where;
  *     - tilesetSizeInTiles[0] : is the horizontal size in Tile units (or number of columns)
  *     - tilesetSizeInTiles[1] : is the vertical size in Tile units (or number of rows)
- * @return {function} - (number) => Array<number> , a function that given a tile
+ * @returns {function} - (number) => Array<number> , a function that given a tile
  *     index (in the complete list of tiles of the target Tile Set), will return
  *     its corresponding position (in Tile units) in the target Tile Set image
  *
@@ -259,10 +259,10 @@ function getTileTargetPositionInTileset(tilesetSizeInTiles) {
  *
  * @param {string} tilesetImageFilename - the filename path in the filesystem
  *     where we would like to write the Tile Set image
- * @return {Promise} - a Promise of a Tile Set Image being written to the
+ * @returns {Promise} - a Promise of a Tile Set Image being written to the
  *     filesystem in the given path
  */
-function writeTilesetImage(tilesetImageFilename, tilesetImage) {
+var writeTilesetImage = function (tilesetImageFilename, tilesetImage) {
   var writeTilesetImage$ =
       Q.ninvoke(tilesetImage, 'write', tilesetImageFilename);
   return writeTilesetImage$;
@@ -277,7 +277,7 @@ function writeTilesetImage(tilesetImageFilename, tilesetImage) {
  *     Tiles to use to build the Tile Set Image
  * @param {Array<number>} tileSizePixels - a pair containing the width and
  *     height in pixels of a Tile
- * @return {Promise} - a Promise of the Tile Set Image being written to the
+ * @returns {Promise} - a Promise of the Tile Set Image being written to the
  *     filesystem correctly
  */
 function buildTilesetImage(tilesetData, tileMapConfig) {
@@ -311,6 +311,12 @@ var compression = {
   },
 };
 
+/**
+ * Creates a new TileMapConfig instance, which will hold the information
+ * necessary to write a .tmx file, compression algorithm, tile size in pixels,
+ * map size in tiles, .tmx version, orientation, etc.
+ * @class
+ */
 function TileMapConfig(fileName, mapSizeTiles, tileSizePixels) {
   this.version = '1.0';
   this.orientation = 'orthogonal';
@@ -320,6 +326,11 @@ function TileMapConfig(fileName, mapSizeTiles, tileSizePixels) {
   this.tileSizePixels = tileSizePixels;
 }
 
+/**
+ * Gets the layer name to be used in a .tmx file for the current TileMap
+ *
+ * @returns {string} - the layer name for the current TileMap instance
+ */
 TileMapConfig.prototype.getLayerName = function () {
   var layerNameWithExtension = path.basename(this.fileName);
   var layerNameExtension = path.extname(layerNameWithExtension);
@@ -327,29 +338,41 @@ TileMapConfig.prototype.getLayerName = function () {
   return layerName;
 }
 
+/**
+ * Gets the TileSet name to be used in a .tmx file for the current TileMap
+ *
+ * @returns {string} - the TileSet name for the current TileMap instance
+ */
 TileMapConfig.prototype.getTilesetName = function () {
   var tilesetName = this.getLayerName();
   return tilesetName;
 }
 
+/**
+ * Gets the TileSet image file name to be used in a .tmx file for the current
+ * TileMap
+ *
+ * @returns {string} - the TileSet image file name for the current TileMap
+ *     instance
+ */
 TileMapConfig.prototype.getTilesetImageFileName = function () {
   var layerName = this.getLayerName();
   var tilesetImageFileName =  layerName + '-Tileset.png';
   return tilesetImageFileName;
 }
 
+/**
+ * Gets the TileSet image path to be used in a .tmx file for the current
+ * TileMap
+ *
+ * @returns {string} - the TileSet image path for the current TileMap
+ *     instance
+ */
 TileMapConfig.prototype.getTilesetImagePath = function () {
   var tilesetImageFileName = this.getTilesetImageFileName();
   var tilesetPath = path.dirname(this.fileName);
   var tilesetImagePath = tilesetPath + '/' + tilesetImageFileName;
   return tilesetImagePath;
-}
-
-function getLayerName(outputFilename) {
-  var layerNameWithExtension = path.basename(outputFilename);
-  var layerNameExtension = path.extname(layerNameWithExtension);
-  var layerName = path.basename(layerNameWithExtension, layerNameExtension);
-  return layerName;
 }
 
 /**
@@ -361,7 +384,7 @@ function getLayerName(outputFilename) {
  * @param {string} compressionAlgorithm - the Compression Algorithm to use to
  *     compress the tileset data, prior to base64 encoding it. The accepted
  *     values are those of the keys of the global "compression" object.
- * @return {string} - a Base64 encoded string, built from a list of little
+ * @returns {string} - a Base64 encoded string, built from a list of little
  *     endian, 32 bit, unsigned integers, holding the indexes of Tiles in a
  *     Tile Set image. The position in the list of 32 bit integers, correspond
  *     to the position of the Tile in the original bitmap image. This is, a
@@ -380,7 +403,15 @@ function buildLayerData(tilesetData, compressionAlgorithm) {
   return tilesetZippedBase64;
 }
 
-function writeTmxMapAttributes(at, tileMapConfig) {
+/**
+ * Builds a representation of the attributes of the 'map' element that
+ * conforms with the corresponding section of a .tmx file format
+ *
+ * @param {function} at - a Simple Xml Writter attribute function
+ * @param {TileMapConfig} tileMapConfig - the TileMap necessary information to
+ *     create a well formed .tmx file.
+ */
+function buildTmxMapElementAttributes(at, tileMapConfig) {
   at('version', tileMapConfig.version);
   at('orientation', tileMapConfig.orientation);
   at('width', tileMapConfig.mapSizeTiles[0]);
@@ -389,7 +420,19 @@ function writeTmxMapAttributes(at, tileMapConfig) {
   at('tileheight', tileMapConfig.tileSizePixels[1]);
 }
 
-function writeTmxTilesetElement(el, firstgid, tileMapConfig, tilesetSizePixels) {
+/**
+ * Builds a representation of our TileMap, that conforms with the 'tileset'
+ * element section of a .tmx file format
+ *
+ * @param {function} el - a Simple Xml Writter element function
+ * @param {number} firstgid - the first tile gid present in the represented
+ *     TileSet
+ * @param {TileMapConfig} tileMapConfig - the TileMap necessary information to
+ *     create a well formed .tmx file.
+ * @param {Array<number>} tilesetSizePixels - a pair with the TileSet size in
+ *     pixel units.
+ */
+function buildTmxTilesetElement(el, firstgid, tileMapConfig, tilesetSizePixels) {
   el('tileset', function (el, at) {
     at('firstgid', firstgid);
     at('name', tileMapConfig.getTilesetName());
@@ -403,7 +446,17 @@ function writeTmxTilesetElement(el, firstgid, tileMapConfig, tilesetSizePixels) 
   });
 }
 
-function writeTmxLayerElement(el, tilesetData, tileMapConfig) {
+/**
+ * Builds a representation of the given TileSet Data, that conforms with the
+ * 'layer' element section of a .tmx file format
+ *
+ * @param {function} el - a Simple Xml Writter element function
+ * @param {Object} tilesetData - the TileSetData holding the .tmx Layer Data
+ *     we would like to write
+ * @param {TileMapConfig} tileMapConfig - the TileMap necessary information to
+ *     create a well formed .tmx file.
+ */
+function buildTmxLayerElement(el, tilesetData, tileMapConfig) {
   var encodedLayerData =
       buildLayerData(tilesetData, tileMapConfig.compressionAlgorithm);
   el('layer', function (el, at) {
@@ -421,40 +474,58 @@ function writeTmxLayerElement(el, tilesetData, tileMapConfig) {
 }
 
 /**
- * @param {Object} tilesetData -
- * @param {number} mapWidthTiles - the horizontal size of the map in tile units
- * @param {number} mapHeightTiles - the vertical size of the map in tile units
- * @param {number} tileWidthPixels - the width of a tile in pixels
- * @param {number} tileHeightPixels - the height a tile in pixels
+ * Builds a string with the content of the given TileSet Data, that conforms
+ * with the .tmx file format
+ *
+ * @param {Object} tilesetData - the TileSetData information required to create
+ *     the .tmx file and its corresponding layer element.
+ * @param {TileMapConfig} tileMapConfig - the TileMap necessary information to
+ *     create a well formed .tmx file.
+ * @returns {string} - a Promise holding a string with the .tmx file contents
  */
-function writeTmxFile(tilesetData, tileMapConfig) {
+function buildTmxFileContent(tilesetData, tileMapConfig) {
   var tilesetImage$ = buildTilesetImage(tilesetData, tileMapConfig);
-  tilesetImage$.then(function (tilesetImage) {
+  var tmxFileContent$ = tilesetImage$.then(function (tilesetImage) {
     var tilesetSizePixels =
         [tilesetImage.bitmap.width, tilesetImage.bitmap.height];
     var firstgid = 1;
-    var tmxOutputFile = new XmlWriter(function (el) {
+    var tmxFileContent = new XmlWriter(function (el) {
       el('map', function (el, at) {
-        writeTmxMapAttributes(at, tileMapConfig);
-        writeTmxTilesetElement(el, firstgid, tileMapConfig, tilesetSizePixels);
-        writeTmxLayerElement(el, tilesetData, tileMapConfig);
+        buildTmxMapElementAttributes(at, tileMapConfig);
+        buildTmxTilesetElement(el, firstgid, tileMapConfig, tilesetSizePixels);
+        buildTmxLayerElement(el, tilesetData, tileMapConfig);
       });
     }, { addDeclaration : true });
-    var fsDenoified = Q.denodeify(fs.writeFile);
-    var writeTmxFile$ =
-        fsDenoified(tileMapConfig.fileName, tmxOutputFile.toString());
+    return tmxFileContent;
+  });
+  return tmxFileContent$;
+}
+
+/**
+ * Writes a .tmx file representing the TileMap given in the tilesetData argument
+ * and whose details are also specified in the accompanying TileMapConfig
+ * instance.
+ *
+ * @param {Object} tilesetData - the TileSetData information required to create
+ *     the .tmx file and its corresponding layer element.
+ * @param {TileMapConfig} tileMapConfig - the TileMap necessary information to
+ *     create a well formed .tmx file.
+ */
+function writeTmxFile(tilesetData, tileMapConfig) {
+    var tmxFileContent$ = buildTmxFileContent(tilesetData, tileMapConfig);
+    var writeTmxFile$ = tmxFileContent$.then(function (tmxFileContent) {
+      var fsWriteFileDenoified = Q.denodeify(fs.writeFile);
+      var writeTmxFileContent$ =
+          fsWriteFileDenoified(tileMapConfig.fileName,
+              tmxFileContent.toString());
+      return writeTmxFileContent$;
+    });
     return writeTmxFile$;
-  })
 }
 
 module.exports = {
   getTileTopLeftCoordinates: getTileTopLeftCoordinates,
   tilesetFromImage : tilesetFromImage,
-  maybeAddTileInCoordinates : maybeAddTileInCoordinates,
   writeTmxFile : writeTmxFile,
-  getTilesetImageSizeInTiles : getTilesetImageSizeInTiles,
-  writeTilesetImage : writeTilesetImage,
-  buildTilesetImage : buildTilesetImage,
-  getTileTargetPositionInTileset : getTileTargetPositionInTileset,
   TileMapConfig : TileMapConfig,
 };

@@ -59,6 +59,10 @@ to run them, simply type:
 ```
 npm test
 ```
+To also display test coverage information, run:
+```
+npm run coverage
+```
 
 ## Inspiration
 TmxTools was first inspired by another OpenSource project,

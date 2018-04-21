@@ -5,15 +5,21 @@
   "main": "tmx-tools.js",
   "scripts": {
     "test": "mocha -u bdd -R spec -t 500 --recursive",
-    "docs": "node_modules/.bin/jsdoc -c .jsdoc.json"
+    "docs": "node_modules/.bin/jsdoc -c .jsdoc.json",
+    "coverage": "node_modules/.bin/nyc mocha -u bdd -R spec -t 500 --recursive"
   },
   "author": "Jisfy",
   "license": "ISC",
   "devDependencies": {
     "chai": "^4.1.2",
+    "chai-as-promised": "^7.1.1",
     "jsdoc": "^3.5.5",
     "minami": "^1.2.3",
-    "mocha": "^5.1.0"
+    "mocha": "^5.1.0",
+    "nyc": "^11.7.1",
+    "rewire": "^4.0.0",
+    "sinon": "^4.5.0",
+    "sinon-chai": "^3.0.0"
   },
   "dependencies": {
     "jimp": "^0.2.28",
