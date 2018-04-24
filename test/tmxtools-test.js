@@ -10,6 +10,60 @@ var chaiAsPromised = require('chai-as-promised');
 chai.use(sinonChai);
 chai.use(chaiAsPromised);
 
+var tmxFileExtension = '.tmx';
+var validTile1ImageFileName = './test/assets/tile.png';
+var validLayerName = 'tileMap';
+var validTilesetName = validLayerName;
+var validFileName = validLayerName + tmxFileExtension;
+var validTilesetImageFileName = validTilesetName + '-Tileset.png';
+var validPath = '/some/folder/';
+var validTilesetImagePath = validPath + validTilesetImageFileName;
+var validTmxFilePath = validPath + validFileName;
+var validMapSizeTiles = [3, 3];
+var validTileSizePixels = [64, 64];
+var tile1Base64 = 'base64 data:image/png;base64,' +
+    'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaX' +
+    'HeAAAAAklEQVR4AewaftIAAAB5SURBVOXBAQEAMAiA' +
+    'ME4e+xd6EA3C9v7MEiZxEidxEidxEidxEidxEidxEi' +
+    'dxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidx' +
+    'EidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEi' +
+    'dxEidxEidxEidxEidxB2JWAro9dnckAAAAAElFTkSu' +
+    'QmCC';
+
+function setSpiedFunction(functionName, tmxTools) {
+  var functionSpy = sinon.spy();
+  tmxTools.__set__(functionName, functionSpy);
+  return functionSpy;
+}
+
+function setStubbedFunctionWith(functionName, functionStub, tmxTools) {
+  tmxTools.__set__(functionName, functionStub);
+  return functionStub;
+}
+
+function setStubbedFunction(functionName, tmxTools) {
+  var functionStub = sinon.stub();
+  return setStubbedFunctionWith(functionName, functionStub, tmxTools);
+}
+
+function getTileImage(callBack) {
+  return Jimp.read(validTile1ImageFileName).then(callBack);
+}
+
+function getTileImageEventually() {
+  return Jimp.read(validTile1ImageFileName);
+}
+
+function getSampleTileMapConfig(tmxTools, targetTileMapPath,
+      tileSize, tileMapSize) {
+  var tileMapConfig = new tmxTools.TileMapConfig(
+    targetTileMapPath,
+    [tileMapSize[0], tileMapSize[1]],
+    [tileSize[0], tileSize[1]],
+  );
+  return tileMapConfig;
+}
+
 function buildEmptyTilesetData() {
   var emptyTilesetData = {
     tiles : [],
@@ -39,10 +93,8 @@ function updateTilesetMapping(tilesetData, indexHorizontal, mappingHorizontal) {
 
 describe('TmxTools', function () {
   context('getTileTopLeftCoordinates', function () {
-    var tileWidth = 64;
-    var tileHeight = 64;
-    var imageWidth = tileWidth * 2;
-    var imageHeight = tileHeight * 2;
+    var imageWidth = validTileSizePixels[0] * 2;
+    var imageHeight = validTileSizePixels[1] * 2;
     var tmxTools = undefined;
 
     beforeEach(function () {
@@ -55,8 +107,8 @@ describe('TmxTools', function () {
       var tileTopLeftCoordinates = tmxTools.getTileTopLeftCoordinates(
           imageWidth,
           imageHeight,
-          tileWidth,
-          tileHeight
+          validTileSizePixels[0],
+          validTileSizePixels[1]
       );
       expect(tileTopLeftCoordinates).to.not.be.null;
       expect(tileTopLeftCoordinates).to.be.deep.equal([[0, 0], [0, 1],
@@ -69,8 +121,8 @@ describe('TmxTools', function () {
       var getTileTopLeftCoordinatesWithArgs = function () {
         tmxTools.getTileTopLeftCoordinates(nonMultipleImageWidth,
             imageHeight,
-            tileWidth,
-            tileHeight
+            validTileSizePixels[0],
+            validTileSizePixels[1]
         );
       };
       expect(getTileTopLeftCoordinatesWithArgs).to.throw('Can not generate ' +
@@ -80,31 +132,13 @@ describe('TmxTools', function () {
 })
 
 describe('maybeAddTileInCoordinatesAsync', function () {
-  var tileWidth = 64;
-  var tileHeight = 64;
-  var tileBase64 = 'base64 data:image/png;base64,' +
-      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaX' +
-      'HeAAAAAklEQVR4AewaftIAAAB5SURBVOXBAQEAMAiA' +
-      'ME4e+xd6EA3C9v7MEiZxEidxEidxEidxEidxEidxEi' +
-      'dxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidx' +
-      'EidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEi' +
-      'dxEidxEidxEidxEidxB2JWAro9dnckAAAAAElFTkSu' +
-      'QmCC';
-  var emptyTilesetData = {
-    mapping : [],
-    tiles: [],
-    tileMapping : {},
-  };
-
   context('given that the tile is already in the tileset', function () {
-    var tile = undefined;
     var maybeAddTileInCoordinates = undefined;
 
     beforeEach(function () {
       var tmxTools = rewire('../src/tmx-tools');
       maybeAddTileInCoordinates = tmxTools.__get__('maybeAddTileInCoordinates');
-      var tileImageFileName = './test/assets/tile.png';
-      this.tile = Jimp.read(tileImageFileName);
+      this.tile = getTileImageEventually();
     });
 
     /*
@@ -125,12 +159,12 @@ describe('maybeAddTileInCoordinatesAsync', function () {
       var targetIndexHorizontal = 1;
       var targetIndexVertical = 2;
       var tilesetData =
-          buildTilesetData(this.tile, tileBase64,
+          buildTilesetData(this.tile, tile1Base64,
               tileIndexHorizontal, tileIndexVertical);
       updateTilesetMapping(tilesetData, targetIndexHorizontal,
           [undefined, undefined, undefined]);
       var expectedTilesetData =
-          buildTilesetData(this.tile, tileBase64, tileIndexHorizontal,
+          buildTilesetData(this.tile, tile1Base64, tileIndexHorizontal,
               tileIndexVertical);
       updateTilesetMapping(expectedTilesetData, targetIndexHorizontal,
           [undefined, undefined, 0]);
@@ -138,7 +172,7 @@ describe('maybeAddTileInCoordinatesAsync', function () {
       var maybeAddTileInCoordinatesAsync =
           maybeAddTileInCoordinates(targetIndexHorizontal,
               targetIndexVertical, this.tile);
-      return maybeAddTileInCoordinatesAsync(tilesetData, tileBase64).then(
+      return maybeAddTileInCoordinatesAsync(tilesetData, tile1Base64).then(
           function (resultingTilesetData) {
             expect(resultingTilesetData).to.be.deep.equal(expectedTilesetData);
           }
@@ -153,8 +187,7 @@ describe('maybeAddTileInCoordinatesAsync', function () {
     beforeEach(function () {
       var tmxTools = rewire('../src/tmx-tools');
       maybeAddTileInCoordinates = tmxTools.__get__('maybeAddTileInCoordinates');
-      var tileImageFileName = './test/assets/tile.png';
-      return this.tile = Jimp.read(tileImageFileName);
+      this.tile = getTileImageEventually();
     });
 
     it('should add a new mapping and a tile', function () {
@@ -162,13 +195,13 @@ describe('maybeAddTileInCoordinatesAsync', function () {
       var tileIndexVertical = 0;
       var tilesetData = buildEmptyTilesetData();
       var expectedTilesetData =
-          buildTilesetData(this.tile, tileBase64,
+          buildTilesetData(this.tile, tile1Base64,
               tileIndexHorizontal, tileIndexVertical);
 
       var maybeAddTileInCoordinatesAsync =
           maybeAddTileInCoordinates(tileIndexHorizontal,
               tileIndexVertical, this.tile);
-      return maybeAddTileInCoordinatesAsync(tilesetData, tileBase64).then(
+      return maybeAddTileInCoordinatesAsync(tilesetData, tile1Base64).then(
           function (resultingTilesetData) {
             expect(resultingTilesetData).to.be.deep.equal(expectedTilesetData);
           }
@@ -267,66 +300,30 @@ describe('getTileTargetPositionInTileset', function () {
 
 describe('buildTilesetImage', function () {
   context('given a valid tileset and TileMapConfig', function () {
-    var tileWidth = 64;
-    var tileHeight = 64;
-    var tileBase64 = 'base64 data:image/png;base64,' +
-        'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaX' +
-        'HeAAAAAklEQVR4AewaftIAAAB5SURBVOXBAQEAMAiA' +
-        'ME4e+xd6EA3C9v7MEiZxEidxEidxEidxEidxEidxEi' +
-        'dxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidx' +
-        'EidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEi' +
-        'dxEidxEidxEidxEidxB2JWAro9dnckAAAAAElFTkSu' +
-        'QmCC';
     var tileIndexHorizontal = 2;
     var tileIndexVertical = 0;
     var targetIndexHorizontal = 1;
     var tile = undefined;
     var tmxTools = undefined;
-    var emptyTilesetData = {
-      mapping : [],
-      tiles: [],
-      tileMapping : {},
-    };
 
     beforeEach(function () {
       tmxTools = rewire('../src/tmx-tools');
-      var tileImageFileName = './test/assets/tile.png';
-      return Jimp.read(tileImageFileName).then(function (aTile) {
+      return getTileImage(function (aTile) {
         tile = aTile;
       });
     });
-
-    function getSampleTileMapConfig(targetTileMapPath) {
-      var tileMapConfig = new tmxTools.TileMapConfig(
-        targetTileMapPath,
-        [3, 3],
-        [tileWidth, tileHeight],
-      );
-      return tileMapConfig;
-    }
-
-    function setSpiedFunction(functionName) {
-      var functionSpy = sinon.spy();
-      tmxTools.__set__(functionName, functionSpy);
-      return functionSpy;
-    }
-
-    function setStubbedFunction(functionName) {
-      var functionStub = sinon.stub();
-      tmxTools.__set__(functionName, functionStub);
-      return functionStub;
-    }
 
     it('should write the TileSet Image at the specified location', function () {
       var outputTileMapFolder = '/sample/dir/';
       var outputTileMapPath = outputTileMapFolder + 'tilemap.tmx';
       var outputTilesetImagePath = outputTileMapFolder + 'tilemap-Tileset.png';
-      var tileMapConfig = getSampleTileMapConfig(outputTileMapPath);
-      var tilesetData = buildTilesetData(tile, tileBase64,
+      var tileMapConfig = getSampleTileMapConfig(tmxTools, outputTileMapPath,
+          validTileSizePixels, validMapSizeTiles);
+      var tilesetData = buildTilesetData(tile, tile1Base64,
           tileIndexHorizontal, tileIndexVertical);
 
-      var writeTilesetImage = setSpiedFunction('writeTilesetImage');
-      var copyTile = setSpiedFunction('copyTile');
+      var writeTilesetImage = setSpiedFunction('writeTilesetImage', tmxTools);
+      var copyTile = setSpiedFunction('copyTile', tmxTools);
       var buildTilesetImage = tmxTools.__get__('buildTilesetImage');
       buildTilesetImage(tilesetData, tileMapConfig);
       expect(copyTile).to.have.been.calledWith(sinon.match.instanceOf(Jimp),
@@ -342,22 +339,105 @@ describe('buildTilesetImage', function () {
       var outputTileMapPath = outputAccessDeniedTileMapFolder + 'tilemap.tmx';
       var outputTilesetImagePath =
           outputAccessDeniedTileMapFolder + 'tilemap-Tileset.png';
-      var tileMapConfig = getSampleTileMapConfig(outputTileMapPath);
-      var tilesetData = buildTilesetData(tile, tileBase64,
+      var tileMapConfig = getSampleTileMapConfig(tmxTools, outputTileMapPath,
+          validTileSizePixels, validMapSizeTiles);
+      var tilesetData = buildTilesetData(tile, tile1Base64,
           tileIndexHorizontal, tileIndexVertical);
 
-      var writeTilesetImage = setStubbedFunction('writeTilesetImage');
+      var writeTilesetImage = setStubbedFunction('writeTilesetImage', tmxTools);
       var errorMessage =
           'EACCES: permission denied, open \'' + outputTilesetImagePath + '\'';
       writeTilesetImage.withArgs(sinon.match.string,
           sinon.match.instanceOf(Jimp)).returns(
               Q.reject(new Error(errorMessage)));
-      var copyTile = setSpiedFunction('copyTile');
+      var copyTile = setSpiedFunction('copyTile', tmxTools);
       var buildTilesetImage = tmxTools.__get__('buildTilesetImage');
       var buildTilesetImage$ = buildTilesetImage(tilesetData, tileMapConfig);
       expect(copyTile).to.have.been.calledWith(sinon.match.instanceOf(Jimp),
           tile, [0, 0]);
       return expect(buildTilesetImage$).to.be.rejectedWith(errorMessage);
+    })
+  })
+})
+
+describe('TileMapconfig', function () {
+  context('given its well formed', function () {
+    var tileMapConfig = undefined;
+    var tmxTools = undefined;
+
+    beforeEach(function (){
+      tmxTools = require('../src/tmx-tools');
+      tileMapConfig = new tmxTools.TileMapConfig(validTmxFilePath,
+          validMapSizeTiles, validTileSizePixels);
+    })
+
+    it('getLayerName should return a valid Layer Name', function () {
+      expect(tileMapConfig.getLayerName()).to.be.equal(validLayerName);
+    })
+
+    it('getTilesetName should return a valid Tileset Name', function () {
+      expect(tileMapConfig.getTilesetName()).to.be.equal(validTilesetName);
+    })
+
+    it('getTilesetImageFileName should return a valid Tileset ' +
+        'Image Filename', function () {
+      expect(tileMapConfig.getTilesetImageFileName()).
+          to.be.equal(validTilesetImageFileName);
+    })
+
+    it('getTilesetImagePath should return a valid Tileset Image Path',
+        function () {
+      expect(tileMapConfig.getTilesetImagePath()).
+          to.be.equal(validTilesetImagePath);
+    })
+  })
+})
+
+describe('writeTmxFile', function () {
+  context('given a valid TilesetData and TileMapConfig', function () {
+    var tmxTools = undefined;
+    var tilesetData = undefined;
+    var tile = undefined;
+    var tileIndexHorizontal = 2;
+    var tileIndexVertical = 0;
+    var fakeTmxFileContent = '<map...';
+
+    beforeEach(function (){
+      tmxTools = rewire('../src/tmx-tools');
+      tileMapConfig = new tmxTools.TileMapConfig(validTmxFilePath,
+          validMapSizeTiles, validTileSizePixels);
+      return getTileImage(function (aTile) {
+        tile = aTile;
+      });
+    })
+
+    function Fs() {
+    }
+
+    Fs.prototype.writeFile = function (fileName, content, cb) {
+      cb(null, '');
+    }
+
+    it('should write a generated TileMap to the given output .tmx file',
+        function() {
+      tilesetData = buildTilesetData(tile, tile1Base64,
+              tileIndexHorizontal, tileIndexVertical);
+      var tileMapConfig = getSampleTileMapConfig(
+          tmxTools, validTilesetImagePath, validTileSizePixels,
+              validMapSizeTiles);
+      var buildTmxFileContent =
+          setStubbedFunction('buildTmxFileContent', tmxTools);
+      buildTmxFileContent.resolves(fakeTmxFileContent);
+
+      var fs = new Fs();
+      var fsWriteFile = sinon.mock(fs);
+      fsWriteFile.expects('writeFile').withArgs(
+          validTilesetImagePath, fakeTmxFileContent).callsArg(2);
+      var fs = setStubbedFunctionWith('fs', fs, tmxTools);
+
+      return tmxTools.writeTmxFile(tilesetData, tileMapConfig).then(function () {
+        fsWriteFile.verify();
+      });
     })
   })
 })

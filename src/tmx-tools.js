@@ -1,4 +1,3 @@
-
 var XmlWriter = require('simple-xml-writer').XmlWriter;
 var Jimp = require('jimp');
 var _ = require('underscore');
