@@ -348,14 +348,99 @@ describe('buildTilesetImage', function () {
       var errorMessage =
           'EACCES: permission denied, open \'' + outputTilesetImagePath + '\'';
       writeTilesetImage.withArgs(sinon.match.string,
-          sinon.match.instanceOf(Jimp)).returns(
-              Q.reject(new Error(errorMessage)));
+          sinon.match.instanceOf(Jimp)).rejects(new Error(errorMessage));
+
       var copyTile = setSpiedFunction('copyTile', tmxTools);
       var buildTilesetImage = tmxTools.__get__('buildTilesetImage');
       var buildTilesetImage$ = buildTilesetImage(tilesetData, tileMapConfig);
       expect(copyTile).to.have.been.calledWith(sinon.match.instanceOf(Jimp),
           tile, [0, 0]);
       return expect(buildTilesetImage$).to.be.rejectedWith(errorMessage);
+    })
+  })
+})
+
+describe('buildTmxFileContent', function () {
+  context('given a valid TilesetData and TileMapConfig', function () {
+    var tmxTools = undefined;
+    var tile = undefined;
+    var tileIndexHorizontal = 2;
+    var tileIndexVertical = 0;
+
+    beforeEach(function (){
+      tmxTools = rewire('../src/tmx-tools');
+      return getTileImage(function (aTile) {
+        tile = aTile;
+      });
+    })
+
+    function buildSampleTmxContent(tileSizePixels,
+        tileMapSizeTiles, tilesetSizePixels) {
+      var sampleTmxContent = '<?xml version="1.0" encoding="UTF-8"?>\r\n' +
+          '<map version="1.0" orientation="orthogonal" width="' +
+          tileMapSizeTiles[0]+'" height="' + tileMapSizeTiles[1] + '"' +
+          ' tilewidth="' + tileSizePixels[0] +'" tileheight="' +
+          tileSizePixels[1] + '">\r\n  <tileset firstgid="1" ' +
+          'name="tilemap" tilewidth="' + tileSizePixels[0] +
+          '" tileheight="' + tileSizePixels[1] + '">\r\n    ' +
+          '<image source="tilemap-Tileset.png" width="' +
+          tilesetSizePixels[0] +'" height="' + tilesetSizePixels[1] +
+          '"/>\r\n  </tileset>\r\n  <layer name="tilemap" width="' +
+          tileMapSizeTiles[0] +'" height="' + tileMapSizeTiles[1] + '">\r\n' +
+          '    <data encoding="base64" compression="gzip">' +
+          'H4sIAAAAAAAAA2NkYGAAAHm4+JkEAAAA</data>\r\n  </layer>\r\n</map>';
+
+      return sampleTmxContent;
+    }
+
+    it('should return a valid .tmx file content', function () {
+      var outputTileMapFolder = '/sample/dir/';
+      var outputTileMapPath = outputTileMapFolder + 'tilemap.tmx';
+      var outputTilesetImagePath = outputTileMapFolder + 'tilemap-Tileset.png';
+      var tileMapConfig = getSampleTileMapConfig(tmxTools, outputTileMapPath,
+          validTileSizePixels, validMapSizeTiles);
+      var tilesetData = buildTilesetData(tile, tile1Base64,
+          tileIndexHorizontal, tileIndexVertical);
+
+      var tilesetWidthPixels = validTileSizePixels[0] * 2;
+      var tilesetHeightPixels = validTileSizePixels[1] * 2;
+      var tilesetImage = new Jimp(tilesetWidthPixels, tilesetHeightPixels);
+      var buildTilesetImage = setStubbedFunction('buildTilesetImage', tmxTools);
+      buildTilesetImage.resolves(tilesetImage);
+
+      var buildTmxFileContent = tmxTools.__get__('buildTmxFileContent');
+      var buildTmxFileContent$ = buildTmxFileContent(tilesetData, tileMapConfig);
+      var resultingTmxContent =
+          buildSampleTmxContent(validTileSizePixels, validMapSizeTiles,
+            [tilesetWidthPixels, tilesetHeightPixels]);
+      var buildTmxFileContentToString$ =
+          buildTmxFileContent$.then(function (simpleXmlWriterContent) {
+            return simpleXmlWriterContent.toString();
+          });
+
+      return expect(buildTmxFileContentToString$).
+          to.eventually.equal(resultingTmxContent);
+    })
+
+    it('should fail if the TileSet Image can not be written at the ' +
+        'specified location', function () {
+      var outputAccessDeniedTileMapFolder = './access_denied/';
+      var outputTileMapPath = outputAccessDeniedTileMapFolder + 'tilemap.tmx';
+      var outputTilesetImagePath =
+          outputAccessDeniedTileMapFolder + 'tilemap-Tileset.png';
+      var tileMapConfig = getSampleTileMapConfig(tmxTools, outputTileMapPath,
+          validTileSizePixels, validMapSizeTiles);
+      var tilesetData = buildTilesetData(tile, tile1Base64,
+          tileIndexHorizontal, tileIndexVertical);
+
+      var buildTilesetImage = setStubbedFunction('buildTilesetImage', tmxTools);
+      var errorMessage =
+          'EACCES: permission denied, open \'' + outputTilesetImagePath + '\'';
+      buildTilesetImage.rejects(new Error(errorMessage));
+
+      var buildTmxFileContent = tmxTools.__get__('buildTmxFileContent');
+      var buildTmxFileContent$ = buildTmxFileContent(tilesetData, tileMapConfig);
+      return expect(buildTmxFileContent$).to.be.rejectedWith(errorMessage);
     })
   })
 })
@@ -402,7 +487,7 @@ describe('writeTmxFile', function () {
     var tileIndexVertical = 0;
     var fakeTmxFileContent = '<map...';
 
-    beforeEach(function (){
+    beforeEach(function () {
       tmxTools = rewire('../src/tmx-tools');
       tileMapConfig = new tmxTools.TileMapConfig(validTmxFilePath,
           validMapSizeTiles, validTileSizePixels);
@@ -439,5 +524,6 @@ describe('writeTmxFile', function () {
         fsWriteFile.verify();
       });
     })
+
   })
 })
