@@ -19,11 +19,15 @@ that would act as the input to the **TmxTools**, and a generated **.tmx** file.
 
 _a sample input bitmap_
 
-![An input bitmap](examples/simple/test.png)
+![An input bitmap](examples/readme/input_bitmap.png)
 
 _and its corresponding Tile Set_
 
-![An output TileSet](examples/simple/test-Tileset.png)
+![An output TileSet](examples/readme/tileset_with_tile_ids.png)
+
+... and this is how tiles are used to construct a TileMap with that image
+
+![A TileMap for the bitmap](examples/readme/input_bitmap_with_tile_ids.png)
 
 ### Running
 ```
